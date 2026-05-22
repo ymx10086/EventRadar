@@ -132,6 +132,10 @@ static_dir = Path(__file__).parent / "static"
 if static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
+imgs_dir = Path(__file__).parent / "imgs"
+if imgs_dir.exists():
+    app.mount("/imgs", StaticFiles(directory=str(imgs_dir)), name="imgs")
+
 @app.get("/api/redoc", include_in_schema=False)
 async def redoc_html():
     """ReDoc 文档（使用 cdnjs 加速）"""

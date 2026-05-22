@@ -28,6 +28,8 @@
         }
         .app { max-width: 1440px; margin: 0 auto; padding: 28px 24px 48px; }
         .topbar { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; margin-bottom: 18px; }
+        .brand { display: grid; gap: 8px; max-width: 680px; }
+        .brand-logo { width: min(340px, 72vw); height: auto; display: block; }
         .eyebrow { color: var(--primary); font-size: 12px; font-weight: 800; margin-bottom: 4px; }
         h1 { font-size: 28px; line-height: 1.2; }
         .subtitle { color: var(--muted); font-size: 14px; margin-top: 6px; }
@@ -303,8 +305,8 @@
 <body>
     <div class="app">
         <header class="topbar">
-            <div>
-                <div class="eyebrow">EventRadar</div>
+            <div class="brand">
+                <img class="brand-logo" src="/imgs/EventRadar.png" alt="EventRadar">
                 <h1>多平台活动雷达</h1>
                 <p class="subtitle">把公众号、链接、文本和图片里的活动统一整理到一个可筛选、可确认、可导出的个人日历。</p>
             </div>

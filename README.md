@@ -1,65 +1,107 @@
-# EventRadar
-
 <p align="center">
-  <img src="imgs/EventRadar.png" alt="EventRadar" width="720">
+  <img src="imgs/EventRadar.png" alt="EventRadar" width="680">
 </p>
 
-**多平台活动雷达：从公众号、链接、文本和图片里自动发现活动，读图补全信息，去重入库，并生成可订阅的大日历。**
+<p align="center">
+  <strong>Multi-source event radar that discovers events from WeChat posts, links, text, and images, enriches them with vision understanding, deduplicates them, and turns them into a subscribable calendar.</strong>
+</p>
 
-EventRadar 是一个面向“活动情报收集”的完整本地化工具。当前版本以微信公众号文章抓取、RSS 订阅和图片归档为主要信息源，并预留多平台扩展方向，后续可以接入小红书、网页链接、社群文本、活动海报等来源。它进一步加入 MiniMax 图片理解、活动结构化抽取、日历去重、收藏保护、定时自动化和 ICS 订阅，适合跟踪讲座、比赛、报名、路演、开放日、峰会、黑客松等信息。
+<p align="center">
+  <img alt="Python 3.9+" src="https://img.shields.io/badge/python-3.9%2B-2563eb.svg?style=flat-square">
+  <img alt="FastAPI" src="https://img.shields.io/badge/runtime-FastAPI-0f766e.svg?style=flat-square">
+  <img alt="SQLite" src="https://img.shields.io/badge/storage-SQLite-475569.svg?style=flat-square">
+  <img alt="MiniMax Vision" src="https://img.shields.io/badge/AI-MiniMax%20Vision-0891b2.svg?style=flat-square">
+  <img alt="ICS Calendar" src="https://img.shields.io/badge/export-ICS%20Calendar-f97316.svg?style=flat-square">
+  <a href="LICENSE"><img alt="License AGPL-3.0" src="https://img.shields.io/badge/license-AGPL--3.0-16a34a.svg?style=flat-square"></a>
+</p>
 
-本项目是在开源项目 **WeChat Download API** 的基础上继续开发而来。原项目提供了微信公众号登录、文章抓取、RSS 订阅、反风控和图片代理等底层能力；EventRadar 在此基础上扩展成一个以“活动日历”为核心的新项目。感谢原作者和原项目的开源工作，相关致谢见文末。
+<p align="center">
+  WeChat Fetching · Daily Archives · Vision Understanding · Event Extraction · Dedupe · ICS Calendar · Automation
+</p>
 
-## 核心能力
+<p align="center">
+  <a href="README.zh-CN.md">中文</a> ·
+  <a href="#why-eventradar">Why</a> ·
+  <a href="#quick-start">Quick Start</a> ·
+  <a href="#what-you-get-today">Features</a> ·
+  <a href="#architecture">Architecture</a> ·
+  <a href="#api-reference">API</a> ·
+  <a href="#configuration">Configuration</a>
+</p>
 
-- **公众号抓取与 RSS 基座**：扫码登录微信公众号后台，搜索并订阅公众号，定时拉取文章列表与正文。
-- **每日归档**：按日期生成 `data/daily_archives/YYYY-MM-DD/articles.json`，并下载封面和正文图片。
-- **图片理解**：纯图片公众号文章会调用 MiniMax Token Plan 图片理解接口读取海报内容，例如活动名称、时间、地点、报名方式和主办方。
-- **活动抽取**：将正文文本、图片 OCR/图片理解结果合并后，用大模型和规则兜底抽取结构化活动。
-- **日历优先时间**：报名开始早于活动开始时，日历优先显示报名开始；报名截止早于活动开始时，优先显示报名截止。
-- **重复导入去重**：重复跑同一天、同公众号或同一篇文章时，只保留一条活动记录；收藏/确认状态会迁移到保留下来的记录。
-- **活动库管理**：支持 `pending` / `confirmed` / `ignored` 状态，`S/A/B/C` 分级，收藏保护，过期未收藏自动清理。
-- **大日历与当天详情**：`events.html` 提供横向筛选、月/周日历、当天活动弹窗、编辑和收藏。
-- **ICS 订阅**：长期日历地址 `/api/events/calendar.ics`，可接入 Apple Calendar、Google Calendar、Outlook 等。
-- **定时自动化**：可按配置每天自动轮询公众号、归档、读图、抽取、去重、写入活动库，并在页面查看进度。
-- **公网访问**：支持配合 `cloudflared` 快速生成 `trycloudflare.com` 公网访问地址。
+## Why EventRadar
 
-## 项目结构
+EventRadar is a local-first event intelligence tool. It currently focuses on WeChat article fetching, RSS subscriptions, and image archiving, while leaving room for future sources such as Xiaohongshu, web links, group-chat text, and event posters. It adds MiniMax-powered vision understanding, structured event extraction, deduplication, review workflows, automation, and ICS calendar subscriptions for lectures, competitions, registrations, roadshows, open days, summits, hackathons, and more.
+
+This project is built on top of the open-source **WeChat Download API** project. The original project provides the WeChat login, article fetching, RSS, anti-risk controls, and image proxy foundation; EventRadar extends it into a calendar-centered event intelligence system.
+
+| Pain Point | How EventRadar Helps |
+| --- | --- |
+| Event information is scattered across posts, posters, links, and text. | Archive multi-source content and extract structured event records. |
+| Image-only posters are hard to search, copy, and organize. | Use MiniMax vision understanding to read event names, times, locations, signup methods, and organizers. |
+| Repeated imports can quickly clutter a calendar. | Dedupe at storage, listing, and ICS layers while preserving favorite and confirmed states. |
+| Event start, signup open, and deadline times are often mixed together. | Place events by the earliest actionable time whenever possible. |
+| Manual calendar maintenance is expensive. | Support scheduled polling, archiving, extraction, cleanup, and ICS subscriptions. |
+
+Under the hood, EventRadar combines:
+
+- **FastAPI runtime**: static pages, API routes, startup tasks, and health checks.
+- **WeChat and RSS foundation**: login, account search, subscription, polling, article parsing, and image proxying.
+- **Daily archive pipeline**: persist articles and images by date.
+- **Event extraction pipeline**: MiniMax plus fallback rules turn article text and image understanding results into events.
+- **SQLite event store**: dedupe, status, priority, favorite, cleanup, CSV, and ICS.
+- **Browser calendar UI**: review, filtering, editing, manual entry, settings, and automation progress.
+
+## What You Get Today
+
+- **WeChat fetching and RSS foundation**: log in by QR code, search and subscribe to accounts, and poll article lists and full content.
+- **Daily archive**: generate `data/daily_archives/YYYY-MM-DD/articles.json` and download cover/body images.
+- **Vision understanding**: image-only WeChat posts can be interpreted by MiniMax Token Plan vision to recover event details.
+- **Event extraction**: combine article text and image understanding results, then extract structured events with LLM and fallback rules.
+- **Calendar-first timing**: when signup open/deadline comes before the event start, the calendar can prioritize the earlier actionable date.
+- **Re-import dedupe**: repeated imports for the same day, account, or article keep one event record and preserve review state.
+- **Event store management**: manage `pending` / `confirmed` / `ignored` states, `S/A/B/C` priority, favorites, and cleanup rules.
+- **Calendar UI and day details**: `events.html` supports filters, month/week/list views, day modals, editing, and favorites.
+- **ICS subscription**: subscribe to `/api/events/calendar.ics` from Apple Calendar, Google Calendar, Outlook, and more.
+- **Scheduled automation**: run scheduled polling, archiving, extraction, dedupe, saving, and progress tracking.
+- **Public access**: expose the local service with `cloudflared` and a temporary `trycloudflare.com` URL when needed.
+
+## Architecture
 
 ```text
 .
-├── app.py                         # FastAPI 主入口，启动 RSS、自动化、登录提醒等后台任务
+├── app.py                         # FastAPI entrypoint; starts RSS, automation, and login reminders
 ├── routes/
-│   ├── rss.py                     # RSS 订阅、轮询、每日归档接口
-│   ├── events.py                  # 活动抽取、活动库、ICS、清理、公众号范围跑
-│   ├── automation.py              # 自动化任务接口
-│   ├── login.py / admin.py        # 微信扫码登录与后台管理
+│   ├── rss.py                     # RSS subscriptions, polling, and daily archive APIs
+│   ├── events.py                  # Event extraction, event store, ICS, cleanup, account-range runs
+│   ├── automation.py              # Automation APIs
+│   ├── login.py / admin.py        # WeChat QR login and admin APIs
 │   └── ...
 ├── utils/
-│   ├── rss_poller.py              # 公众号轮询
-│   ├── daily_archive.py           # 每日文章和图片归档
-│   ├── event_extractor.py         # 图片理解、活动抽取、ICS 导出
-│   ├── event_store.py             # 活动库、去重、收藏、清理
-│   ├── event_automation.py        # 定时抓取和进度
+│   ├── rss_poller.py              # WeChat account polling
+│   ├── daily_archive.py           # Daily article and image archives
+│   ├── event_extractor.py         # Vision understanding, event extraction, ICS export
+│   ├── event_store.py             # Event store, dedupe, favorites, cleanup
+│   ├── event_automation.py        # Scheduled pipeline and progress
 │   └── ...
 ├── static/
-│   ├── admin.html                 # 原文章/RSS 管理面板
-│   └── events.html                # EventRadar 活动日历主界面
+│   ├── admin.html                 # Admin panel
+│   └── events.html                # Main EventRadar calendar UI
 ├── data/
-│   ├── rss.db                     # 公众号订阅和文章缓存
-│   ├── events.db                  # 活动库
-│   ├── daily_archives/            # 每日文章归档和图片
-│   └── events/                    # 每日活动导出文件
-├── env.example                    # 配置模板
-├── start.sh                       # 本地/服务器启动脚本，可选 Cloudflare Tunnel
+│   ├── rss.db                     # Account subscriptions and article cache
+│   ├── events.db                  # Event store
+│   ├── daily_archives/            # Daily article archives and images
+│   └── events/                    # Daily event exports
+├── env.example                    # Environment template
+├── start.sh                       # Local/server startup script, optional Cloudflare Tunnel
 └── docker-compose.yml
 ```
 
-## 本地启动流程
+## Quick Start
 
-下面是推荐的完整启动方式。因为 EventRadar 依赖原项目的微信公众号登录、RSS 订阅和文章抓取能力，所以启动后先完成“基座”部分，再使用活动日历。
+The recommended flow is to initialize the local environment, log in to WeChat, set up RSS subscriptions, archive articles, and then run event extraction.
 
-### 1. 创建环境
+### 1. Create Environment
 
 ```bash
 cd /path/to/eventradar
@@ -69,7 +111,7 @@ pip install -r requirements.txt
 cp env.example .env
 ```
 
-编辑 `.env`，至少确认这些配置：
+Edit `.env` and verify at least these settings:
 
 ```env
 PORT=5001
@@ -77,7 +119,7 @@ HOST=0.0.0.0
 DAILY_ARCHIVE_TIMEZONE=Asia/Shanghai
 DAILY_ARCHIVE_DOWNLOAD_IMAGES=true
 
-MINIMAX_API_KEY=你的 MiniMax Token Plan Key
+MINIMAX_API_KEY=your MiniMax Token Plan key
 MINIMAX_API_STYLE=anthropic
 MINIMAX_BASE_URL=https://api.minimax.io/anthropic
 MINIMAX_API_HOST=https://api.minimaxi.com
@@ -91,20 +133,20 @@ EVENT_AUTOMATION_USE_VISION=true
 EVENT_RETENTION_DAYS=15
 ```
 
-说明：
+Notes:
 
-- `MINIMAX_MODEL` 用于文本结构化抽取。
-- 图片理解走 Token Plan 的 `/v1/coding_plan/vlm`，优先使用 `MINIMAX_API_HOST`，代码会在 `api.minimaxi.com` 和 `api.minimax.io` 间自动回退。
-- 如果暂时没有 MiniMax Key，系统仍会用规则兜底，但纯图片活动识别会明显变弱。
+- `MINIMAX_MODEL` is used for text-based structured extraction.
+- Vision understanding uses the Token Plan `/v1/coding_plan/vlm` endpoint and prefers `MINIMAX_API_HOST`, with automatic fallback between `api.minimaxi.com` and `api.minimax.io`.
+- Without a MiniMax key, fallback rules still work, but image-only event recognition will be much weaker.
 
-### 2. 启动后端
+### 2. Start Backend
 
 ```bash
 source venv/bin/activate
 python app.py
 ```
 
-启动后会看到类似：
+You should see output like:
 
 ```text
 EventRadar - FastAPI Service
@@ -113,43 +155,43 @@ Events Page: http://localhost:5001/events.html
 API Docs:   http://localhost:5001/api/docs
 ```
 
-常用页面：
+Common pages:
 
-| 页面 | 用途 |
+| Page | Purpose |
 |------|------|
-| `http://localhost:5001/admin.html` | 原项目管理面板：登录、RSS、接口测试 |
-| `http://localhost:5001/login.html` | 微信公众平台扫码登录 |
-| `http://localhost:5001/rss.html` | 公众号 RSS 订阅管理 |
-| `http://localhost:5001/events.html` | EventRadar 活动日历主界面 |
-| `http://localhost:5001/api/docs` | Swagger API 文档 |
+| `http://localhost:5001/admin.html` | Admin panel for login, RSS, and API checks |
+| `http://localhost:5001/login.html` | WeChat QR-code login |
+| `http://localhost:5001/rss.html` | WeChat RSS subscription management |
+| `http://localhost:5001/events.html` | Main EventRadar calendar UI |
+| `http://localhost:5001/api/docs` | Swagger API docs |
 
-### 3. 先启动“原项目基座能力”
+### 3. Initialize the WeChat/RSS Foundation
 
-第一次使用必须先完成以下步骤：
+Before using event extraction for the first time:
 
-1. 打开 `login.html`，用公众号管理员微信扫码登录。
-2. 打开 `admin.html` 或 `rss.html`，搜索并订阅需要监控的公众号。
-3. 手动触发 RSS 轮询，确认文章能进入 `data/rss.db`。
-4. 生成每日归档，确认 `data/daily_archives/YYYY-MM-DD/articles.json` 和图片目录存在。
+1. Open `login.html` and scan the QR code with a WeChat official account administrator.
+2. Open `admin.html` or `rss.html`, search for accounts, and subscribe to the ones you want to monitor.
+3. Trigger RSS polling and confirm articles are written into `data/rss.db`.
+4. Generate a daily archive and confirm `data/daily_archives/YYYY-MM-DD/articles.json` plus the image directory exist.
 
-对应 API：
+Related API calls:
 
 ```bash
-# 订阅公众号，fakeid 可从搜索接口或页面获取
+# Subscribe to an account. fakeid can be found through the search API or UI.
 curl -X POST http://localhost:5001/api/rss/subscribe \
   -H "Content-Type: application/json" \
-  -d '{"fakeid":"公众号 fakeid","nickname":"公众号名称"}'
+  -d '{"fakeid":"account fakeid","nickname":"account name"}'
 
-# 轮询已订阅公众号
+# Poll subscribed accounts
 curl -X POST http://localhost:5001/api/rss/poll
 
-# 生成当天文章归档并下载图片
+# Create today's article archive and download images
 curl -X POST "http://localhost:5001/api/rss/archive/daily?poll=false&download_images=true"
 ```
 
-### 4. 再运行活动抽取
+### 4. Run Event Extraction
 
-打开 `events.html`，选择公众号和日期范围后运行。也可以用 API：
+Open `events.html`, choose an account and date range, then run extraction. You can also call the API directly:
 
 ```bash
 curl -X POST http://localhost:5001/api/events/extract \
@@ -162,13 +204,13 @@ curl -X POST http://localhost:5001/api/events/extract \
   }'
 ```
 
-也可以按公众号和日期范围跑完整链路：
+You can also run the full pipeline by account and date range:
 
 ```bash
 curl -X POST http://localhost:5001/api/events/run-account-range \
   -H "Content-Type: application/json" \
   -d '{
-    "account": "去探索官方号",
+    "account": "account name",
     "start_date": "2026-05-15",
     "end_date": "2026-05-21",
     "use_llm": true,
@@ -177,17 +219,17 @@ curl -X POST http://localhost:5001/api/events/run-account-range \
   }'
 ```
 
-产物：
+Outputs:
 
-- 活动库：`data/events.db`
-- 每日导出：`data/events/YYYY-MM-DD/events.json`
-- CSV：`data/events/YYYY-MM-DD/events.csv`
-- ICS：`data/events/YYYY-MM-DD/calendar.ics`
-- 长期 ICS：`http://localhost:5001/api/events/calendar.ics`
+- Event store: `data/events.db`
+- Daily JSON: `data/events/YYYY-MM-DD/events.json`
+- CSV: `data/events/YYYY-MM-DD/events.csv`
+- ICS: `data/events/YYYY-MM-DD/calendar.ics`
+- Long-lived ICS: `http://localhost:5001/api/events/calendar.ics`
 
-### 5. 开启定时自动化
+### 5. Enable Scheduled Automation
 
-在 `events.html` 的设置里可以开启，也可以编辑 `.env`：
+You can enable automation from the settings panel in `events.html`, or configure `.env`:
 
 ```env
 EVENT_AUTOMATION_ENABLED=true
@@ -198,58 +240,58 @@ EVENT_AUTOMATION_USE_VISION=true
 EVENT_RETENTION_DAYS=15
 ```
 
-含义：
+Meaning:
 
-- 每天到点后自动轮询已启用自动抓取的公众号。
-- `EVENT_AUTOMATION_LOOKBACK_DAYS=0` 表示只抓今天；免费保守模式建议长期保持 `0`，偶尔补抓可临时改成 `1`。
-- 每次保存后会自动去重，重复导入只保留一条。
-- 未收藏且早于当前日期 15 天前的活动会自动清理；收藏活动永远保留。
+- Poll automation-enabled accounts at the configured time every day.
+- `EVENT_AUTOMATION_LOOKBACK_DAYS=0` means only today; a conservative free-mode setup should usually keep it at `0`, with occasional manual backfill.
+- Each save triggers dedupe so repeated imports keep one record.
+- Unfavorited old events are cleaned after the retention window; favorited events are always preserved.
 
-查看进度：
+Check progress:
 
 ```bash
 curl http://localhost:5001/api/events/settings
 ```
 
-返回里会包含 `automation.progress`，前端设置区也会显示当前阶段和进度。
+The response includes `automation.progress`, and the frontend settings panel also displays the current stage and progress.
 
-## 公网访问
+## Public Access
 
-本地调试时可以使用 Cloudflare Quick Tunnel：
+For local debugging, you can expose the service with Cloudflare Quick Tunnel:
 
 ```bash
 cloudflared tunnel --url http://127.0.0.1:5001
 ```
 
-启动后会得到类似：
+It will return a URL like:
 
 ```text
 https://example-words.trycloudflare.com
 ```
 
-访问：
+Then visit:
 
 - `https://example-words.trycloudflare.com/events.html`
 - `https://example-words.trycloudflare.com/admin.html`
 
-也可以让 `start.sh` 自动启动 tunnel：
+You can also let `start.sh` launch the tunnel automatically:
 
 ```env
 CLOUDFLARE_TUNNEL_ENABLED=true
 PORT=5001
 ```
 
-然后：
+Then run:
 
 ```bash
 bash start.sh
 ```
 
-注意：Cloudflare Quick Tunnel 地址是临时地址，重启后可能变化。生产环境建议使用固定域名和正式 tunnel。
+Cloudflare Quick Tunnel URLs are temporary and may change after restart. For production use, prefer a fixed domain and a formal tunnel.
 
-## Docker 启动
+## Docker
 
-当前仓库可以直接本地构建：
+Build and run locally:
 
 ```bash
 cp env.example .env
@@ -257,144 +299,144 @@ docker-compose up -d --build
 docker-compose logs -f
 ```
 
-默认端口由 `.env` 的 `PORT` 控制。首次使用后仍需访问 `login.html` 扫码登录。
+The default port is controlled by `PORT` in `.env`. After the first launch, visit `login.html` to complete WeChat QR login.
 
-如果你只是使用原项目官方镜像，请注意官方镜像不一定包含 EventRadar 的最新活动抽取和日历功能；推荐使用本仓库构建镜像。
+If you use the original upstream image, note that it may not include EventRadar's latest event extraction and calendar features. Building from this repository is recommended.
 
-## 常用 API
+## API Reference
 
-### 健康检查
+### Health Check
 
 ```bash
 curl http://localhost:5001/api/health
 ```
 
-### 微信公众号文章基座
+### WeChat Article Foundation
 
-| 方法 | 路径 | 说明 |
+| Method | Path | Description |
 |------|------|------|
-| `GET` | `/api/public/searchbiz?query=关键词` | 搜索公众号，获取 fakeid |
-| `POST` | `/api/article` | 解析单篇微信文章 |
-| `POST` | `/api/rss/subscribe` | 添加公众号订阅 |
-| `GET` | `/api/rss/subscriptions` | 查看订阅列表 |
-| `POST` | `/api/rss/poll` | 手动轮询公众号文章 |
-| `POST` | `/api/rss/archive/daily` | 生成每日文章归档 |
-| `GET` | `/api/rss/{fakeid}` | 输出 RSS 订阅源 |
+| `GET` | `/api/public/searchbiz?query=keyword` | Search WeChat accounts and get fakeid |
+| `POST` | `/api/article` | Parse one WeChat article |
+| `POST` | `/api/rss/subscribe` | Add an account subscription |
+| `GET` | `/api/rss/subscriptions` | List subscriptions |
+| `POST` | `/api/rss/poll` | Manually poll account articles |
+| `POST` | `/api/rss/archive/daily` | Create daily article archive |
+| `GET` | `/api/rss/{fakeid}` | Serve RSS feed |
 
-### 活动日历
+### Event Calendar
 
-| 方法 | 路径 | 说明 |
+| Method | Path | Description |
 |------|------|------|
-| `POST` | `/api/events/extract` | 从每日归档抽取活动 |
-| `POST` | `/api/events/run-account` | 输入公众号后完成订阅、轮询、归档、抽取 |
-| `POST` | `/api/events/run-account-range` | 按公众号和日期范围批量抽取 |
-| `GET` | `/api/events/list` | 查询活动库，支持日期、状态、分级、关键词 |
-| `PATCH` | `/api/events/{event_id}` | 编辑活动、状态、分级 |
-| `POST` | `/api/events/{event_id}/favorite` | 收藏/取消收藏 |
-| `GET` | `/api/events/calendar.ics` | 长期活动日历订阅 |
-| `GET` | `/api/events/export.csv` | 导出 CSV |
-| `POST` | `/api/events/cleanup` | 清理超过保留期的未收藏活动 |
-| `POST` | `/api/events/cleanup-duplicates` | 手动清理重复活动 |
-| `GET` | `/api/events/settings` | 查看自动化配置和进度 |
-| `POST` | `/api/events/settings` | 保存自动化配置 |
+| `POST` | `/api/events/extract` | Extract events from daily archives |
+| `POST` | `/api/events/run-account` | Subscribe, poll, archive, and extract for one account |
+| `POST` | `/api/events/run-account-range` | Run extraction by account and date range |
+| `GET` | `/api/events/list` | Query events by date, status, priority, and keyword |
+| `PATCH` | `/api/events/{event_id}` | Edit event content, status, and priority |
+| `POST` | `/api/events/{event_id}/favorite` | Favorite or unfavorite an event |
+| `GET` | `/api/events/calendar.ics` | Long-lived ICS calendar subscription |
+| `GET` | `/api/events/export.csv` | Export CSV |
+| `POST` | `/api/events/cleanup` | Clean up old unfavorited events |
+| `POST` | `/api/events/cleanup-duplicates` | Manually remove duplicates |
+| `GET` | `/api/events/settings` | Read automation settings and progress |
+| `POST` | `/api/events/settings` | Save automation settings |
 
-## 去重规则
+## Deduplication
 
-重复导入时，系统会在入库层、列表层和 ICS 层共同去重：
+When content is imported repeatedly, EventRadar deduplicates at the storage, list, and ICS layers:
 
-- 同一来源文章、同一活动标题或同一活动日期会复用已有记录。
-- 新抽取质量更高时会更新原记录内容，但保留原来的状态、收藏、备注。
-- 如果重复项里有收藏或确认状态，会迁移到保留的那一条。
-- 每次抽取保存后自动执行重复清理。
-- 历史数据中残留的低质量空时间记录会在启动或手动清理时移除。
+- Records from the same source article, event title, or event date can reuse existing events.
+- Higher-quality extracted content can update the stored record while preserving status, favorite, and notes.
+- Favorite or confirmed state is migrated to the retained event.
+- Duplicate cleanup runs automatically after extraction saves.
+- Low-quality legacy records with empty time fields can be removed on startup or manual cleanup.
 
-这意味着每天重复跑导入不会让日历上出现多条相同活动。
+This means repeated daily imports should not produce multiple copies of the same calendar item.
 
-## 时间规则
+## Calendar Time Rules
 
-活动日历的日期不是简单使用 `start_time`，而是按“最早需要行动的关键时间”排序：
+The calendar does not simply use `start_time`; it sorts by the earliest actionable time:
 
-1. 如果有报名开始时间，优先使用报名开始。
-2. 如果没有报名开始，但有报名截止，使用报名截止。
-3. 否则使用活动开始时间。
-4. 识别到 `5月10日晚上24:00` 这类截止时间时，会归到 `5月10日`，不会漂到 `5月11日`。
-5. 带时区的 ISO 时间，例如 `2026-05-23T13:30:00+08:00`，会按本地日期正确显示在 5月23日。
+1. If signup start time exists, use it first.
+2. If there is no signup start but a deadline exists, use the deadline.
+3. Otherwise, use the event start time.
+4. Deadline-like `May 10 24:00` is kept on May 10 instead of drifting to May 11.
+5. Timezone-aware ISO timestamps are displayed on the correct local date.
 
-## 配置说明
+## Configuration
 
-常用配置：
+Common settings:
 
-| 配置项 | 说明 | 默认值 |
+| Key | Description | Default |
 |--------|------|--------|
-| `PORT` | 服务端口 | `5000` |
-| `HOST` | 监听地址 | `0.0.0.0` |
-| `SITE_URL` | 图片代理和外部访问地址 | `http://localhost:5000` |
-| `PUBLIC_URL` | 固定公网地址，可选 | 空 |
-| `WECHAT_TOKEN` / `WECHAT_COOKIE` | 微信登录凭证，扫码后自动填充 | 空 |
-| `RSS_FETCH_FULL_CONTENT` | RSS 是否抓取完整正文 | `true` |
-| `WECHAT_FETCH_CONCURRENCY` | 微信正文抓取并发，越低越稳 | `1` |
-| `WECHAT_FETCH_DELAY_MIN` / `WECHAT_FETCH_DELAY_MAX` | 单篇正文抓取之间的随机等待区间，秒 | `8` / `18` |
-| `WECHAT_ACCOUNT_DELAY` | 每个公众号之间的等待时间，秒 | `20` |
-| `WECHAT_MAX_ARTICLES_PER_ACCOUNT` | 每个公众号每轮最多抓取完整正文数 | `10` |
-| `WECHAT_VERIFICATION_PAUSE_MINUTES` | 连续触发验证后的自动冷却分钟数 | `60` |
-| `WECHAT_VERIFICATION_STOP_THRESHOLD` | 连续触发几次验证后进入冷却 | `1` |
-| `WECHAT_PROXY_REQUIRED` | 是否强制要求配置代理池后才抓正文 | `false` |
-| `DAILY_ARCHIVE_DOWNLOAD_IMAGES` | 每日归档是否下载图片 | `true` |
-| `MINIMAX_API_KEY` | MiniMax Token Plan Key | 空 |
-| `MINIMAX_API_STYLE` | 文本模型接口风格 | `anthropic` |
-| `MINIMAX_BASE_URL` | 文本模型接口地址 | `https://api.minimax.io/anthropic` |
-| `MINIMAX_API_HOST` | Token Plan 图片理解接口 host | `https://api.minimaxi.com` |
-| `MINIMAX_MODEL` | 文本抽取模型 | `MiniMax-M2.7` |
-| `MINIMAX_VISION_ENABLED` | 是否启用图片理解 | `true` |
-| `EVENT_AUTOMATION_ENABLED` | 是否启用定时活动抓取 | `false` |
-| `EVENT_AUTOMATION_LOOKBACK_DAYS` | 定时任务回看天数 | `0` |
-| `EVENT_RETENTION_DAYS` | 未收藏过期活动保留天数 | `15` |
-| `PROXY_URLS` | SOCKS5/HTTP 代理池 | 空 |
-| `CLOUDFLARE_TUNNEL_ENABLED` | `start.sh` 是否启动 Cloudflare Tunnel | `false` |
+| `PORT` | Service port | `5000` |
+| `HOST` | Bind host | `0.0.0.0` |
+| `SITE_URL` | Image proxy and external URL | `http://localhost:5000` |
+| `PUBLIC_URL` | Optional fixed public URL | empty |
+| `WECHAT_TOKEN` / `WECHAT_COOKIE` | WeChat credentials filled after QR login | empty |
+| `RSS_FETCH_FULL_CONTENT` | Whether RSS fetches full content | `true` |
+| `WECHAT_FETCH_CONCURRENCY` | Full-content fetch concurrency; lower is safer | `1` |
+| `WECHAT_FETCH_DELAY_MIN` / `WECHAT_FETCH_DELAY_MAX` | Random delay between full-content fetches, in seconds | `8` / `18` |
+| `WECHAT_ACCOUNT_DELAY` | Delay between accounts, in seconds | `20` |
+| `WECHAT_MAX_ARTICLES_PER_ACCOUNT` | Max full articles per account per poll | `10` |
+| `WECHAT_VERIFICATION_PAUSE_MINUTES` | Cooldown minutes after verification is triggered | `60` |
+| `WECHAT_VERIFICATION_STOP_THRESHOLD` | Verification threshold before cooldown | `1` |
+| `WECHAT_PROXY_REQUIRED` | Require proxy pool before fetching full content | `false` |
+| `DAILY_ARCHIVE_DOWNLOAD_IMAGES` | Download images during daily archive | `true` |
+| `MINIMAX_API_KEY` | MiniMax Token Plan Key | empty |
+| `MINIMAX_API_STYLE` | Text model API style | `anthropic` |
+| `MINIMAX_BASE_URL` | Text model base URL | `https://api.minimax.io/anthropic` |
+| `MINIMAX_API_HOST` | Vision endpoint host | `https://api.minimaxi.com` |
+| `MINIMAX_MODEL` | Text extraction model | `MiniMax-M2.7` |
+| `MINIMAX_VISION_ENABLED` | Enable vision understanding | `true` |
+| `EVENT_AUTOMATION_ENABLED` | Enable scheduled event automation | `false` |
+| `EVENT_AUTOMATION_LOOKBACK_DAYS` | Automation lookback days | `0` |
+| `EVENT_RETENTION_DAYS` | Retention days for old unfavorited events | `15` |
+| `PROXY_URLS` | SOCKS5/HTTP proxy pool | empty |
+| `CLOUDFLARE_TUNNEL_ENABLED` | Whether `start.sh` launches Cloudflare Tunnel | `false` |
 
-防风控建议：
+Anti-risk suggestions:
 
-- 启用完整正文抓取时，建议配置 2-3 个 SOCKS5 代理，降低微信风控概率。
-- 示例：`PROXY_URLS=socks5://user:pass@ip1:1080,socks5://user:pass@ip2:1080`
-- 默认即为免费保守模式：每天定时跑 1 次，回看天数建议 `0-1`，每个公众号每轮最多抓取 `10` 篇正文。
-- 保守配置：`WECHAT_FETCH_CONCURRENCY=1`，`WECHAT_FETCH_DELAY_MIN=8`，`WECHAT_FETCH_DELAY_MAX=18`，`WECHAT_ACCOUNT_DELAY=20`。
-- 代理稳定后可把并发调到 `2`；不建议长期超过 `3`。
-- 如果触发微信验证，系统会自动进入 60 分钟冷却，设置页会显示剩余冷却时间；冷却期间定时抓取会停止本轮任务。
+- When fetching full content, use 2-3 SOCKS5 proxies to reduce WeChat risk checks.
+- Example: `PROXY_URLS=socks5://user:pass@ip1:1080,socks5://user:pass@ip2:1080`
+- The default is a conservative free-mode setup: one scheduled run per day, `0-1` lookback days, and up to `10` full articles per account per poll.
+- Conservative settings: `WECHAT_FETCH_CONCURRENCY=1`, `WECHAT_FETCH_DELAY_MIN=8`, `WECHAT_FETCH_DELAY_MAX=18`, `WECHAT_ACCOUNT_DELAY=20`.
+- After proxies are stable, concurrency can be raised to `2`; staying above `3` long term is not recommended.
+- If verification is triggered, the system enters a 60-minute cooldown, shows the remaining cooldown in settings, and stops the current scheduled run.
 
-## 测试
+## Testing
 
 ```bash
 PYTHONPYCACHEPREFIX=.pycache venv/bin/python -m unittest discover -s tests
 PYTHONPYCACHEPREFIX=.pycache venv/bin/python -m compileall -q app.py routes utils tests
 ```
 
-## 数据目录
+## Data Directory
 
-| 路径 | 说明 |
+| Path | Description |
 |------|------|
-| `data/rss.db` | 公众号订阅和文章缓存 |
-| `data/events.db` | 活动库 |
-| `data/daily_archives/YYYY-MM-DD/articles.json` | 每日文章归档 |
-| `data/daily_archives/YYYY-MM-DD/images/` | 每日图片归档 |
-| `data/events/YYYY-MM-DD/events.json` | 每日活动导出 |
-| `data/events/YYYY-MM-DD/calendar.ics` | 每日 ICS |
-| `data/automation/` | 自动化运行历史 |
+| `data/rss.db` | Account subscriptions and article cache |
+| `data/events.db` | Event store |
+| `data/daily_archives/YYYY-MM-DD/articles.json` | Daily article archive |
+| `data/daily_archives/YYYY-MM-DD/images/` | Daily image archive |
+| `data/events/YYYY-MM-DD/events.json` | Daily event export |
+| `data/events/YYYY-MM-DD/calendar.ics` | Daily ICS export |
+| `data/automation/` | Automation run history |
 
-## 注意事项
+## Notes
 
-- 本项目需要微信公众号管理员扫码登录，凭证通常约 4 天过期，过期后需重新登录。
-- 项目已内置 Chrome TLS 指纹、代理池轮转、随机等待、公众号间隔、验证检测和自动冷却；批量抓取完整正文时仍建议配置代理池，并保持低并发。
-- 纯图片文章依赖 MiniMax Token Plan 图片理解能力；没有 Key 时只能做弱规则兜底。
-- Quick Tunnel 公网地址是临时地址，不适合长期生产使用。
-- 本项目仅供学习、研究和个人信息整理使用，请遵守微信公众平台相关服务条款。
+- This project requires QR-code login with a WeChat official account administrator. Credentials usually expire after about 4 days.
+- Chrome TLS fingerprinting, proxy rotation, random delays, account-level spacing, verification detection, and cooldown are built in; for bulk full-content fetching, a proxy pool and low concurrency are still recommended.
+- Image-only articles depend on MiniMax Token Plan vision understanding. Without a key, only weak fallback rules are available.
+- Quick Tunnel public URLs are temporary and not ideal for production.
+- This project is for learning, research, and personal information organization. Please follow the relevant WeChat platform terms.
 
-## 致谢
+## Acknowledgements
 
-EventRadar 基于原开源项目 **WeChat Download API** 继续开发。原项目提供了非常重要的微信公众号登录、文章抓取、RSS、图片代理、反风控和 FastAPI 基础架构。本项目在此基础上加入活动抽取、图片理解、活动库、日历 UI、ICS 订阅、自动化进度、收藏保护、过期清理和重复导入去重等能力。
+EventRadar is developed on top of the original open-source **WeChat Download API** project, which provides the essential WeChat login, article fetching, RSS, image proxy, anti-risk, and FastAPI foundation. This project adds event extraction, vision understanding, an event store, calendar UI, ICS subscription, automation progress, favorite protection, retention cleanup, and repeated-import dedupe.
 
-感谢：
+Thanks to:
 
-- 原项目作者 [tmwgsicp](https://github.com/tmwgsicp) 及其开源的 `wechat-download-api`
+- Original author [tmwgsicp](https://github.com/tmwgsicp) and the open-source `wechat-download-api`
 - [FastAPI](https://fastapi.tiangolo.com/)
 - [curl_cffi](https://github.com/lexiforest/curl_cffi)
 - [HTTPX](https://www.python-httpx.org/)
@@ -403,4 +445,4 @@ EventRadar 基于原开源项目 **WeChat Download API** 继续开发。原项�
 
 ## License
 
-本项目延续原项目的 AGPL-3.0 开源协议。修改后对外提供网络服务时，请遵守 AGPL-3.0 的开源义务。
+This project follows the original project's AGPL-3.0 license. If you modify it and provide it as a network service, please comply with AGPL-3.0 obligations.

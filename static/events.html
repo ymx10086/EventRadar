@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EventRadar｜活动日历</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --green: #16a34a;
+            --amber: #d97706;
+            --red: #dc2626;
+            --ink: #111827;
+            --muted: #6b7280;
+            --soft: #f7f8fb;
+            --line: #e5e7eb;
+            --panel: #ffffff;
+            --shadow: 0 12px 36px rgba(15, 23, 42, .08);
+            --radius: 8px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            color: var(--ink);
+            background: var(--soft);
+            min-height: 100vh;
+        }
+        .app { max-width: 1440px; margin: 0 auto; padding: 28px 24px 48px; }
+        .topbar { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; margin-bottom: 18px; }
+        .eyebrow { color: var(--primary); font-size: 12px; font-weight: 800; margin-bottom: 4px; }
+        h1 { font-size: 28px; line-height: 1.2; }
+        .subtitle { color: var(--muted); font-size: 14px; margin-top: 6px; }
+        .toolbar { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+        button, .btn {
+            border: 1px solid var(--line);
+            background: #fff;
+            color: var(--ink);
+            border-radius: var(--radius);
+            padding: 9px 13px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        button:hover, .btn:hover { border-color: var(--primary); color: var(--primary); }
+        .primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+        .primary:hover { background: var(--primary-dark); color: #fff; }
+        button:disabled { opacity: .55; cursor: not-allowed; }
+        .shell { display: block; }
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+        .side { padding: 12px; margin-bottom: 14px; position: sticky; top: 10px; z-index: 8; }
+        .side h2, .section-title { font-size: 15px; margin-bottom: 12px; }
+        .field { display: grid; gap: 6px; margin-bottom: 12px; }
+        .field-help { color: var(--muted); font-size: 12px; line-height: 1.45; }
+        label { color: var(--muted); font-size: 12px; font-weight: 700; }
+        input, select, textarea {
+            width: 100%;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 9px 10px;
+            font: inherit;
+            font-size: 14px;
+            background: #fff;
+            outline: none;
+        }
+        textarea { min-height: 90px; resize: vertical; }
+        input:focus, select:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.10); }
+        .segmented { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+        .segmented button { padding: 8px; font-weight: 800; }
+        .segmented button.active { background: #eff6ff; color: var(--primary); border-color: var(--primary); }
+        .filter-bar {
+            display: grid;
+            grid-template-columns: 210px 140px 140px 140px 140px minmax(220px, 1fr) 140px auto auto;
+            gap: 10px;
+            align-items: end;
+        }
+        .filter-bar .field { margin-bottom: 0; }
+        .filter-bar .segmented { min-width: 210px; }
+        .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+        .stat { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
+        .stat .k { color: var(--muted); font-size: 12px; }
+        .stat .v { font-size: 22px; font-weight: 800; margin-top: 2px; }
+        .main { padding: 16px; }
+        .calendar-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .calendar-title { font-size: 20px; font-weight: 800; }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            overflow: hidden;
+            background: #fff;
+        }
+        .weekday, .day {
+            border-right: 1px solid var(--line);
+            border-bottom: 1px solid var(--line);
+            min-width: 0;
+        }
+        .weekday:nth-child(7n), .day:nth-child(7n) { border-right: 0; }
+        .weekday {
+            background: #f9fafb;
+            padding: 9px;
+            text-align: center;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 800;
+        }
+        .day { min-height: 148px; padding: 8px; }
+        .day.out { background: #fafafa; }
+        .day.today { background: #eff6ff; box-shadow: inset 0 0 0 2px rgba(37, 99, 235, .35); }
+        .day-num { color: var(--muted); font-size: 12px; margin-bottom: 6px; display: flex; justify-content: space-between; gap: 6px; }
+        .day.today .day-num::after { content: "今天"; color: var(--primary); font-weight: 800; }
+        .week-grid { grid-template-columns: repeat(7, minmax(150px, 1fr)); overflow-x: auto; }
+        .list-view { display: grid; gap: 10px; }
+        .event-pill {
+            display: block;
+            width: 100%;
+            border: 0;
+            color: #fff;
+            border-radius: 6px;
+            padding: 5px 7px;
+            margin-bottom: 5px;
+            font-size: 12px;
+            line-height: 1.3;
+            text-align: left;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .event-pill strong { font-weight: 900; opacity: .92; }
+        .more-pill {
+            display: block;
+            color: var(--muted);
+            font-size: 12px;
+            padding: 2px 7px;
+        }
+        .day-more {
+            width: 100%;
+            justify-content: center;
+            margin-top: 4px;
+            padding: 4px 7px;
+            font-size: 12px;
+        }
+        .event-card {
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: #fff;
+            padding: 12px;
+            display: grid;
+            gap: 8px;
+        }
+        .event-card-top { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+        .event-title { font-weight: 800; font-size: 15px; }
+        .event-meta { display: flex; flex-wrap: wrap; gap: 6px 12px; color: var(--muted); font-size: 12px; }
+        .reason { color: #374151; font-size: 13px; background: #f9fafb; border-radius: 6px; padding: 8px; }
+        .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+        .tag, .badge {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            padding: 3px 8px;
+            font-size: 12px;
+            background: #f3f4f6;
+            color: #374151;
+            font-weight: 700;
+        }
+        .level {
+            color: #fff;
+            min-width: 34px;
+            justify-content: center;
+        }
+        .level-S, .p-S { background: #b91c1c; }
+        .level-A, .p-A { background: #c2410c; }
+        .level-B, .p-B { background: #2563eb; }
+        .level-C, .p-C { background: #4b5563; }
+        .status-pending { background: #fff7ed; color: #9a3412; }
+        .status-confirmed { background: #ecfdf5; color: #166534; }
+        .status-ignored { background: #fef2f2; color: #991b1b; }
+        .card-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+        .mini { padding: 5px 8px; font-size: 12px; border-radius: 6px; }
+        .danger { border-color: #fecaca; color: var(--red); }
+        .danger:hover { border-color: var(--red); color: #b91c1c; }
+        .empty {
+            border: 1px dashed #cbd5e1;
+            border-radius: var(--radius);
+            padding: 28px;
+            text-align: center;
+            color: var(--muted);
+            background: #fff;
+        }
+        .empty strong { display: block; color: var(--ink); margin-bottom: 6px; }
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, .42);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 18px;
+            z-index: 20;
+        }
+        .modal-backdrop.open { display: flex; }
+        .modal {
+            width: min(760px, 100%);
+            max-height: min(86vh, 860px);
+            overflow: auto;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 24px 70px rgba(15, 23, 42, .25);
+        }
+        .modal.small { width: min(520px, 100%); }
+        .modal.large { width: min(920px, 100%); }
+        .modal-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 18px;
+            border-bottom: 1px solid var(--line);
+        }
+        .modal-head h2 { font-size: 18px; }
+        .modal-body { padding: 18px; }
+        .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+        .row-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+        .status-line { margin-top: 10px; color: var(--muted); font-size: 13px; }
+        .status-line.ok { color: var(--green); }
+        .status-line.err { color: var(--red); }
+        .progress-wrap {
+            display: none;
+            margin-top: 14px;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 12px;
+            background: #f9fafb;
+        }
+        .progress-wrap.open { display: block; }
+        .progress-bar {
+            height: 8px;
+            border-radius: 999px;
+            background: #e5e7eb;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: var(--primary);
+            transition: width .25s ease;
+        }
+        .progress-message { font-size: 13px; font-weight: 800; margin-bottom: 8px; }
+        .progress-log {
+            display: grid;
+            gap: 5px;
+            max-height: 180px;
+            overflow: auto;
+            color: var(--muted);
+            font-size: 12px;
+        }
+        .progress-log div {
+            border-left: 3px solid #dbeafe;
+            padding-left: 8px;
+        }
+        .source-row, .log-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
+            align-items: center;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 10px;
+            margin-bottom: 8px;
+        }
+        .source-row p, .log-row p { color: var(--muted); font-size: 12px; margin-top: 3px; }
+        @media (max-width: 900px) {
+            .topbar { flex-direction: column; }
+            .toolbar { justify-content: flex-start; }
+            .side { position: static; }
+            .filter-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .filter-bar .segmented { min-width: 0; }
+            .stats { grid-template-columns: repeat(2, 1fr); }
+            .grid2 { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 620px) {
+            .filter-bar { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <header class="topbar">
+            <div>
+                <div class="eyebrow">EventRadar</div>
+                <h1>多平台活动雷达</h1>
+                <p class="subtitle">把公众号、链接、文本和图片里的活动统一整理到一个可筛选、可确认、可导出的个人日历。</p>
+            </div>
+            <div class="toolbar">
+                <button class="primary" onclick="openModal('addModal')">添加活动</button>
+                <button onclick="openModal('extractModal')">公众号提取</button>
+                <button onclick="openModal('sourcesModal'); loadSources()">信息源管理</button>
+                <button onclick="openModal('profileModal'); loadProfile()">个人信息</button>
+                <button onclick="openModal('settingsModal'); loadSettings(); loadRuns()">设置</button>
+                <a class="btn" href="/admin.html">管理后台</a>
+                <a class="btn" href="/api/events/calendar.ics" target="_blank">导出日历</a>
+            </div>
+        </header>
+
+        <div class="stats" id="stats"></div>
+
+        <div class="shell">
+            <aside class="panel side">
+                <div class="filter-bar">
+                    <div class="field">
+                        <label>视图</label>
+                        <div class="segmented">
+                            <button id="view-month" onclick="setView('month')">月</button>
+                            <button id="view-week" onclick="setView('week')">周</button>
+                            <button id="view-list" onclick="setView('list')">列表</button>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label>月份</label>
+                        <input id="monthInput" type="month" onchange="handleMonthChange()">
+                    </div>
+                    <div class="field">
+                        <label>等级</label>
+                        <select id="levelFilter" onchange="loadEvents()">
+                            <option value="">全部等级</option>
+                            <option value="S">S 强相关</option>
+                            <option value="A">A 值得关注</option>
+                            <option value="B">B 一般相关</option>
+                            <option value="C">C 低相关</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>标签</label>
+                        <select id="tagFilter" onchange="loadEvents()">
+                            <option value="">全部标签</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>状态</label>
+                        <select id="statusFilter" onchange="loadEvents()">
+                            <option value="">全部有效</option>
+                            <option value="pending">待确认</option>
+                            <option value="confirmed">已确认</option>
+                            <option value="ignored">已忽略</option>
+                        </select>
+                        <div class="field-help">默认显示待确认和已确认；忽略会隐藏。</div>
+                    </div>
+                    <div class="field">
+                        <label>关键词</label>
+                        <input id="keywordInput" type="text" placeholder="标题 / 地点 / 来源" onkeydown="if(event.key==='Enter') loadEvents()">
+                    </div>
+                    <div class="field">
+                        <label>收藏</label>
+                        <select id="favoriteFilter" onchange="loadEvents()">
+                            <option value="">全部</option>
+                            <option value="favorite">仅收藏</option>
+                            <option value="unfavorite">仅未收藏</option>
+                        </select>
+                    </div>
+                    <button class="primary" onclick="loadEvents()">刷新</button>
+                    <button onclick="clearFilters()">清空</button>
+                </div>
+            </aside>
+
+            <main class="panel main">
+                <div class="calendar-head">
+                    <div>
+                        <div class="section-title">活动</div>
+                        <div class="calendar-title" id="rangeTitle">-</div>
+                    </div>
+                    <div class="row-actions" style="margin-top:0;">
+                        <button onclick="moveRange(-1)">上一个</button>
+                        <button onclick="jumpToday()">今天</button>
+                        <button onclick="moveRange(1)">下一个</button>
+                    </div>
+                </div>
+                <div class="status-line" id="calendarStatus"></div>
+                <div id="calendarRoot"></div>
+            </main>
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="addModal">
+        <div class="modal">
+            <div class="modal-head"><h2>添加活动</h2><button class="mini" onclick="closeModal('addModal')">关闭</button></div>
+            <div class="modal-body">
+                <div class="grid2">
+                    <div class="field"><label>添加方式</label><select id="manualMode"><option value="manual">手动填写</option><option value="text">粘贴文本</option><option value="link">输入链接</option><option value="image">上传图片</option></select></div>
+                    <div class="field"><label>链接</label><input id="manualLink" type="text" placeholder="https://..."></div>
+                </div>
+                <div class="field"><label>粘贴文本</label><textarea id="manualText" placeholder="粘贴活动通知、海报 OCR 或报名说明"></textarea></div>
+                <div class="field"><label>图片文件</label><input id="manualImage" type="file" accept="image/*"></div>
+                <div class="grid2">
+                    <div class="field"><label>标题</label><input id="manualTitle" type="text"></div>
+                    <div class="field"><label>标签</label><input id="manualTags" type="text" placeholder="AI，创业，讲座"></div>
+                    <div class="field"><label>开始时间</label><input id="manualStart" type="text" placeholder="2026-05-22 19:00"></div>
+                    <div class="field"><label>结束时间</label><input id="manualEnd" type="text"></div>
+                    <div class="field"><label>地点</label><input id="manualLocation" type="text"></div>
+                    <div class="field"><label>城市</label><input id="manualCity" type="text"></div>
+                    <div class="field"><label>主办方</label><input id="manualOrganizer" type="text"></div>
+                    <div class="field"><label>报名截止</label><input id="manualDeadline" type="text"></div>
+                    <div class="field"><label>报名链接</label><input id="manualRegLink" type="text"></div>
+                    <div class="field"><label>等级</label><select id="manualLevel"><option value="">自动分级</option><option value="S">S 强相关</option><option value="A">A 值得关注</option><option value="B">B 一般相关</option><option value="C">C 低相关</option></select></div>
+                </div>
+                <div class="field"><label>描述</label><textarea id="manualDesc"></textarea></div>
+                <div class="row-actions"><button class="primary" onclick="saveManualEvent()">保存到我的日历</button></div>
+                <div class="status-line" id="manualStatus"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="extractModal">
+        <div class="modal small">
+            <div class="modal-head"><h2>公众号提取</h2><button class="mini" onclick="closeModal('extractModal')">关闭</button></div>
+            <div class="modal-body">
+                <div class="field"><label>公众号</label><input id="extractAccount" type="text" placeholder="公众号名称 / alias / fakeid"></div>
+                <div class="grid2">
+                    <div class="field"><label>开始日期</label><input id="extractStart" type="date"></div>
+                    <div class="field"><label>结束日期</label><input id="extractEnd" type="date"></div>
+                </div>
+                <div class="grid2">
+                    <div class="field"><label>模型抽取</label><select id="extractLlm"><option value="true">开启</option><option value="false">关闭</option></select></div>
+                    <div class="field"><label>海报识别</label><select id="extractVision"><option value="false">关闭</option><option value="true">开启</option></select></div>
+                </div>
+                <div class="row-actions"><button class="primary" id="extractBtn" onclick="runAccountRange()">批量提取活动</button></div>
+                <div class="status-line" id="extractStatus"></div>
+                <div class="progress-wrap" id="extractProgress">
+                    <div class="progress-bar"><div class="progress-fill" id="extractProgressFill"></div></div>
+                    <div class="progress-message" id="extractProgressMessage">等待开始</div>
+                    <div class="progress-log" id="extractProgressLog"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="sourcesModal">
+        <div class="modal">
+            <div class="modal-head"><h2>信息源管理</h2><button class="mini" onclick="closeModal('sourcesModal')">关闭</button></div>
+            <div class="modal-body">
+                <div class="grid2">
+                    <div class="field"><label>类型</label><select id="sourceType"><option value="wechat">公众号</option><option value="link">链接源</option></select></div>
+                    <div class="field"><label>公众号名称 / 信息源名称</label><input id="sourceName" type="text" placeholder="例如：北大创新创业"></div>
+                    <div class="field"><label>fakeid（可选）</label><input id="sourceFakeid" type="text" placeholder="不知道可以不填"></div>
+                    <div class="field"><label>链接源 URL</label><input id="sourceUrl" type="text" placeholder="选择链接源时填写"></div>
+                </div>
+                <div class="row-actions"><button class="primary" onclick="addSource()">添加信息源</button></div>
+                <div class="status-line" id="sourceStatus"></div>
+                <div style="margin-top:14px;" id="sourceList"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="profileModal">
+        <div class="modal">
+            <div class="modal-head"><h2>个人信息</h2><button class="mini" onclick="closeModal('profileModal')">关闭</button></div>
+            <div class="modal-body">
+                <div class="grid2">
+                    <div class="field"><label>身份</label><input id="profileIdentity" type="text"></div>
+                    <div class="field"><label>职业</label><input id="profileProfession" type="text"></div>
+                </div>
+                <div class="field"><label>研究方向</label><input id="profileResearch" type="text"></div>
+                <div class="field"><label>兴趣</label><textarea id="profileInterests" placeholder="每行一个"></textarea></div>
+                <div class="field"><label>优先关键词</label><textarea id="profileKeywords" placeholder="每行一个"></textarea></div>
+                <div class="field"><label>避免主题</label><textarea id="profileAvoid" placeholder="每行一个"></textarea></div>
+                <div class="row-actions"><button class="primary" onclick="saveProfile()">保存画像</button></div>
+                <div class="status-line" id="profileStatus"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="settingsModal">
+        <div class="modal">
+            <div class="modal-head"><h2>设置</h2><button class="mini" onclick="closeModal('settingsModal')">关闭</button></div>
+            <div class="modal-body">
+                <div class="grid2">
+                    <div class="field"><label>每日自动抓取</label><select id="settingEnabled"><option value="false">关闭</option><option value="true">开启</option></select></div>
+                    <div class="field"><label>抓取时间</label><input id="settingTime" type="time"></div>
+                    <div class="field"><label>日期范围</label><input id="settingLookbackDays" type="number" min="0" max="30" step="1" placeholder="0"><p>包含前 N 天到今天；0 表示只抓今天。</p></div>
+                    <div class="field"><label>保留天数</label><input id="settingRetentionDays" type="number" min="1" max="365" step="1" placeholder="15"><p>未收藏活动超过这个天数会被删除，收藏永远保留。</p></div>
+                    <div class="field"><label>自动导入日历</label><select id="settingImport"><option value="true">开启</option><option value="false">关闭</option></select></div>
+                    <div class="field"><label>模型抽取</label><select id="settingLlm"><option value="true">开启</option><option value="false">关闭</option></select></div>
+                    <div class="field"><label>海报识别</label><select id="settingVision"><option value="false">关闭</option><option value="true">开启</option></select></div>
+                    <div class="field"><label>压缩长度</label><input id="settingMaxChars" type="number" min="1000" max="30000" step="500"></div>
+                </div>
+                <h3 class="section-title" style="margin-top:18px;">防风控策略</h3>
+                <div class="grid2">
+                    <div class="field"><label>正文抓取并发</label><input id="settingFetchConcurrency" type="number" min="1" max="5" step="1"><p>建议 1；代理池稳定时可调到 2。</p></div>
+                    <div class="field"><label>单篇最小间隔（秒）</label><input id="settingFetchDelayMin" type="number" min="0" max="300" step="1"></div>
+                    <div class="field"><label>单篇最大间隔（秒）</label><input id="settingFetchDelayMax" type="number" min="0" max="300" step="1"></div>
+                    <div class="field"><label>公众号间隔（秒）</label><input id="settingAccountDelay" type="number" min="0" max="600" step="1"></div>
+                    <div class="field"><label>每号最多抓正文</label><input id="settingMaxArticlesPerAccount" type="number" min="1" max="100" step="1"></div>
+                    <div class="field"><label>验证后冷却（分钟）</label><input id="settingVerificationPause" type="number" min="0" max="720" step="5"></div>
+                    <div class="field"><label>连续验证阈值</label><input id="settingVerificationThreshold" type="number" min="1" max="20" step="1"></div>
+                    <div class="field"><label>必须使用代理池</label><select id="settingProxyRequired"><option value="false">否</option><option value="true">是</option></select><p>开启后未配置 PROXY_URLS 会停止抓正文。</p></div>
+                </div>
+                <div class="status-line" id="fetchSafetyStatus"></div>
+                <div class="row-actions">
+                    <button class="primary" onclick="saveSettings()">保存设置</button>
+                    <button onclick="runAutomationNow()">立即抓取所有关注源</button>
+                    <button onclick="cleanupOldEvents()">清理过期活动</button>
+                    <button onclick="cleanupDuplicateEvents()">清理重复活动</button>
+                </div>
+                <div class="status-line" id="settingsStatus"></div>
+                <div class="progress-wrap" id="automationProgress">
+                    <div class="progress-bar"><div class="progress-fill" id="automationProgressFill"></div></div>
+                    <div class="progress-message" id="automationProgressMessage">等待开始</div>
+                    <div class="progress-log" id="automationProgressLog"></div>
+                </div>
+                <h3 class="section-title" style="margin-top:18px;">抓取日志</h3>
+                <div id="runLog"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="dayModal">
+        <div class="modal large">
+            <div class="modal-head"><h2 id="dayModalTitle">当天活动</h2><button class="mini" onclick="closeModal('dayModal')">关闭</button></div>
+            <div class="modal-body">
+                <div id="dayModalBody" class="list-view"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="editModal">
+        <div class="modal">
+            <div class="modal-head"><h2>编辑活动</h2><button class="mini" onclick="closeModal('editModal')">关闭</button></div>
+            <div class="modal-body">
+                <input id="editId" type="hidden">
+                <div class="grid2">
+                    <div class="field"><label>标题</label><input id="editTitle" type="text"></div>
+                    <div class="field"><label>标签</label><input id="editTags" type="text"></div>
+                    <div class="field"><label>开始时间</label><input id="editStart" type="text"></div>
+                    <div class="field"><label>结束时间</label><input id="editEnd" type="text"></div>
+                    <div class="field"><label>地点</label><input id="editLocation" type="text"></div>
+                    <div class="field"><label>城市</label><input id="editCity" type="text"></div>
+                    <div class="field"><label>等级</label><select id="editLevel"><option value="S">S 强相关</option><option value="A">A 值得关注</option><option value="B">B 一般相关</option><option value="C">C 低相关</option></select></div>
+                    <div class="field"><label>状态</label><select id="editStatus"><option value="pending">待确认</option><option value="confirmed">已确认</option><option value="ignored">已忽略</option></select><div class="field-help">待确认是 AI 候选；已确认表示人工核验过；已忽略会从默认日历隐藏。</div></div>
+                    <div class="field"><label>报名截止</label><input id="editDeadline" type="text"></div>
+                    <div class="field"><label>报名链接</label><input id="editRegLink" type="text"></div>
+                </div>
+                <div class="field"><label>推荐理由</label><textarea id="editReason"></textarea></div>
+                <div class="field"><label>描述</label><textarea id="editDesc"></textarea></div>
+                <div class="field" id="editSourceRow" style="display:none;">
+                    <label>原文链接</label>
+                    <a class="btn" id="editSourceLink" href="#" target="_blank" rel="noopener">打开公众号原文</a>
+                </div>
+                <div class="row-actions"><button class="primary" onclick="saveEdit()">保存修改</button><button class="danger" onclick="deleteCurrentEvent()">彻底删除</button></div>
+                <div class="status-line" id="editStatusLine"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentView = 'month';
+        let currentEvents = [];
+        let currentWeekStart = '';
+
+        function todayChina() {
+            const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+            const map = {};
+            parts.forEach(p => map[p.type] = p.value);
+            return map.year + '-' + map.month + '-' + map.day;
+        }
+        function localDateKey(date) {
+            return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+        }
+        function localMonthKey(date) {
+            return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0');
+        }
+        function esc(value) {
+            return String(value || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+        function lines(value) {
+            return String(value || '').split(/[\n,，]/).map(s => s.trim()).filter(Boolean);
+        }
+        function normalizeDateInput(value) {
+            const text = String(value || '').trim();
+            if (!text) return todayChina();
+            let match = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+            if (!match) match = text.match(/^(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})(?:日)?$/);
+            if (!match) return '';
+            return match[1] + '-' + String(match[2]).padStart(2, '0') + '-' + String(match[3]).padStart(2, '0');
+        }
+        function openModal(id) { document.getElementById(id).classList.add('open'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+        function setLine(id, text, type) {
+            const el = document.getElementById(id);
+            el.className = 'status-line ' + (type || '');
+            el.textContent = text || '';
+        }
+        function levelText(level) {
+            return ({ S: 'S 强相关', A: 'A 值得关注', B: 'B 一般相关', C: 'C 低相关' })[level] || 'B 一般相关';
+        }
+        function statusText(status) {
+            return ({ pending: '待确认', confirmed: '已确认', ignored: '已忽略' })[status] || '待确认';
+        }
+        function eventDateKey(event) {
+            const text = String(event.calendar_time || event.signup_start_time || event.registration_deadline || event.signup_deadline || event.start_time || '');
+            let m = text.match(/\d{4}-\d{2}-\d{2}/);
+            if (m) return m[0];
+            m = text.match(/(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日/);
+            if (m) return m[1] + '-' + String(m[2]).padStart(2, '0') + '-' + String(m[3]).padStart(2, '0');
+            m = text.match(/(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+            if (m) return m[1] + '-' + String(m[2]).padStart(2, '0') + '-' + String(m[3]).padStart(2, '0');
+            const fallbackYear = (event.source_publish_time || '').match(/\b(20\d{2})\b/)?.[1] || document.getElementById('monthInput').value.slice(0, 4) || todayChina().slice(0, 4);
+            m = text.match(/(\d{1,2})月\s*(\d{1,2})(?:日)?/);
+            if (m) return fallbackYear + '-' + String(m[1]).padStart(2, '0') + '-' + String(m[2]).padStart(2, '0');
+            m = text.match(/(?<!\d)(\d{1,2})[/-](\d{1,2})(?!\d)/);
+            if (m) return fallbackYear + '-' + String(m[1]).padStart(2, '0') + '-' + String(m[2]).padStart(2, '0');
+            return '';
+        }
+        function monthRange() {
+            const value = document.getElementById('monthInput').value || todayChina().slice(0, 7);
+            const base = new Date(value + '-01T00:00:00');
+            const y = base.getFullYear();
+            const m = base.getMonth();
+            return {
+                year: y,
+                month: m,
+                start: localDateKey(new Date(y, m, 1)),
+                end: localDateKey(new Date(y, m + 1, 0)),
+                label: y + '年' + String(m + 1).padStart(2, '0') + '月'
+            };
+        }
+        function weekRange() {
+            const value = document.getElementById('monthInput').value || todayChina().slice(0, 7);
+            const today = new Date(todayChina() + 'T00:00:00');
+            const base = currentWeekStart ? new Date(currentWeekStart + 'T00:00:00') : (localMonthKey(today) === value ? today : new Date(value + '-01T00:00:00'));
+            const day = (base.getDay() + 6) % 7;
+            const start = new Date(base);
+            start.setDate(base.getDate() - day);
+            const end = new Date(start);
+            end.setDate(start.getDate() + 6);
+            currentWeekStart = localDateKey(start);
+            document.getElementById('monthInput').value = localMonthKey(start);
+            return { start: localDateKey(start), end: localDateKey(end), label: localDateKey(start) + ' 至 ' + localDateKey(end), startDate: start };
+        }
+        function activeRange() { return currentView === 'week' ? weekRange() : monthRange(); }
+        function setView(view) {
+            currentView = view;
+            if (view === 'week' && !currentWeekStart) {
+                const selectedMonth = document.getElementById('monthInput').value || todayChina().slice(0, 7);
+                currentWeekStart = selectedMonth === todayChina().slice(0, 7) ? todayChina() : selectedMonth + '-01';
+            }
+            ['month', 'week', 'list'].forEach(v => document.getElementById('view-' + v).classList.toggle('active', v === view));
+            loadEvents();
+        }
+        function handleMonthChange() {
+            const value = document.getElementById('monthInput').value || todayChina().slice(0, 7);
+            currentWeekStart = currentView === 'week' ? value + '-01' : '';
+            loadEvents();
+        }
+        function moveRange(delta) {
+            const input = document.getElementById('monthInput');
+            if (currentView === 'week') {
+                const base = new Date((currentWeekStart || todayChina()) + 'T00:00:00');
+                base.setDate(base.getDate() + delta * 7);
+                currentWeekStart = localDateKey(base);
+                input.value = localMonthKey(base);
+                loadEvents();
+                return;
+            }
+            const base = new Date((input.value || todayChina().slice(0, 7)) + '-01T00:00:00');
+            base.setMonth(base.getMonth() + delta);
+            currentWeekStart = '';
+            input.value = localMonthKey(base);
+            loadEvents();
+        }
+        function jumpToday() {
+            document.getElementById('monthInput').value = todayChina().slice(0, 7);
+            currentWeekStart = todayChina();
+            loadEvents();
+        }
+        function clearFilters() {
+            document.getElementById('levelFilter').value = '';
+            document.getElementById('tagFilter').value = '';
+            document.getElementById('statusFilter').value = '';
+            document.getElementById('keywordInput').value = '';
+            document.getElementById('favoriteFilter').value = '';
+            setLine('calendarStatus', '');
+            loadEvents();
+        }
+        async function loadEvents(options) {
+            options = options || {};
+            if (!options.keepStatus) setLine('calendarStatus', '');
+            if (currentView !== 'week') currentWeekStart = '';
+            const range = activeRange();
+            const params = new URLSearchParams();
+            params.set('start', range.start);
+            params.set('end', range.end);
+            const level = document.getElementById('levelFilter').value;
+            const tag = document.getElementById('tagFilter').value;
+            const status = document.getElementById('statusFilter').value;
+            const q = document.getElementById('keywordInput').value.trim();
+            const favorite = document.getElementById('favoriteFilter').value;
+            if (level) params.set('priority', level);
+            if (tag) params.set('tag', tag);
+            if (status) params.set('status', status);
+            if (status === 'ignored') params.set('include_ignored', 'true');
+            if (q) params.set('q', q);
+            if (favorite === 'favorite') params.set('favorite', 'true');
+            if (favorite === 'unfavorite') params.set('favorite', 'false');
+            const res = await fetch('/api/events/list?' + params.toString());
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.detail || '活动读取失败');
+            currentEvents = data.data.events || [];
+            if (favorite === 'favorite') currentEvents = currentEvents.filter(e => e.is_favorite || e.favorite);
+            if (favorite === 'unfavorite') currentEvents = currentEvents.filter(e => !(e.is_favorite || e.favorite));
+            renderStats(data.data || {});
+            renderTagOptions(data.data.tags || []);
+            document.getElementById('rangeTitle').textContent = range.label;
+            if (currentView === 'list') renderList(currentEvents);
+            else renderCalendar(currentEvents, range);
+        }
+        function renderStats(data) {
+            const levels = data.priority_counts || {};
+            document.getElementById('stats').innerHTML =
+                '<div class="stat"><div class="k">活动总数</div><div class="v">' + esc(data.event_count || 0) + '</div></div>' +
+                '<div class="stat"><div class="k">S 强相关</div><div class="v">' + esc(levels.S || 0) + '</div></div>' +
+                '<div class="stat"><div class="k">A 值得关注</div><div class="v">' + esc(levels.A || 0) + '</div></div>' +
+                '<div class="stat"><div class="k">收藏数</div><div class="v">' + esc(data.favorite_count || 0) + '</div></div>';
+        }
+        function renderTagOptions(tags) {
+            const select = document.getElementById('tagFilter');
+            const current = select.value;
+            select.innerHTML = '<option value="">全部标签</option>' + tags.map(t => '<option value="' + esc(t) + '">' + esc(t) + '</option>').join('');
+            select.value = current;
+        }
+        function compactTimeLabel(event) {
+            const label = event.calendar_time_label || '';
+            if (label.includes('报名开始')) return '报名';
+            if (label.includes('报名截止')) return '截止';
+            if (label.includes('活动开始')) return '开始';
+            return label.slice(0, 2);
+        }
+        function openDayDetails(dateKey) {
+            const items = currentEvents.filter(e => eventDateKey(e) === dateKey).sort((a, b) => {
+                const levelOrder = { S: 0, A: 1, B: 2, C: 3 };
+                const levelDiff = (levelOrder[a.level || a.priority || 'B'] ?? 2) - (levelOrder[b.level || b.priority || 'B'] ?? 2);
+                if (levelDiff !== 0) return levelDiff;
+                return String(a.title || '').localeCompare(String(b.title || ''));
+            });
+            document.getElementById('dayModalTitle').textContent = dateKey + ' 的活动';
+            document.getElementById('dayModalBody').innerHTML = items.map(eventCard).join('') || '<div class="empty"><strong>这一天没有活动</strong></div>';
+            openModal('dayModal');
+        }
+        function renderCalendar(events, range) {
+            const root = document.getElementById('calendarRoot');
+            const heads = ['一', '二', '三', '四', '五', '六', '日'].map(d => '<div class="weekday">周' + d + '</div>').join('');
+            const byDate = {};
+            events.forEach(e => {
+                const key = eventDateKey(e);
+                if (!key) return;
+                byDate[key] = byDate[key] || [];
+                byDate[key].push(e);
+            });
+            let dates = [];
+            if (currentView === 'week') {
+                for (let i = 0; i < 7; i++) {
+                    const d = new Date(range.startDate);
+                    d.setDate(range.startDate.getDate() + i);
+                    dates.push(d);
+                }
+            } else {
+                const first = new Date(range.year, range.month, 1);
+                const offset = (first.getDay() + 6) % 7;
+                const start = new Date(first);
+                start.setDate(first.getDate() - offset);
+                for (let i = 0; i < 42; i++) {
+                    const d = new Date(start);
+                    d.setDate(start.getDate() + i);
+                    dates.push(d);
+                }
+            }
+            let html = '<div class="calendar-grid ' + (currentView === 'week' ? 'week-grid' : '') + '">' + heads;
+            dates.forEach(d => {
+                const key = localDateKey(d);
+                const out = currentView === 'month' && d.getMonth() !== range.month;
+                const todaysClass = key === todayChina() ? ' today' : '';
+                const dayEvents = byDate[key] || [];
+                html += '<div class="day ' + (out ? 'out' : '') + todaysClass + '"><div class="day-num"><span>' + (d.getMonth() + 1) + '/' + d.getDate() + '</span>' + (dayEvents.length ? '<span>' + esc(dayEvents.length) + '条</span>' : '') + '</div>';
+                dayEvents.slice(0, 5).forEach(e => {
+                    const label = compactTimeLabel(e);
+                    html += '<button class="event-pill p-' + esc(e.level || e.priority || 'B') + '" onclick="openEdit(&quot;' + esc(e.id) + '&quot;)" title="' + esc((e.calendar_time_label || '') + ' · ' + (e.reason || e.title)) + '">' + (label ? '<strong>' + esc(label) + '</strong> ' : '') + esc(e.title) + '</button>';
+                });
+                if (dayEvents.length > 5) html += '<span class="more-pill">还有 ' + esc(dayEvents.length - 5) + ' 个</span>';
+                if (dayEvents.length) html += '<button class="mini day-more" onclick="openDayDetails(&quot;' + esc(key) + '&quot;)">查看当天</button>';
+                html += '</div>';
+            });
+            html += '</div>';
+            if (!events.length) html = '<div class="empty"><strong>当前范围没有活动</strong><p>可以添加活动，或从公众号按时间范围批量提取。</p><div class="row-actions" style="justify-content:center;"><button class="primary" onclick="openModal(&quot;extractModal&quot;)">公众号提取</button><button onclick="openModal(&quot;addModal&quot;)">添加活动</button></div></div>';
+            root.innerHTML = html;
+        }
+        function renderList(events) {
+            const root = document.getElementById('calendarRoot');
+            if (!events.length) {
+                root.innerHTML = '<div class="empty"><strong>暂无活动</strong><p>换一个筛选条件，或添加新的活动。</p></div>';
+                return;
+            }
+            root.innerHTML = '<div class="list-view">' + events.map(eventCard).join('') + '</div>';
+        }
+        function eventCard(e) {
+            const tags = (e.tags || []).map(t => '<span class="tag">' + esc(t) + '</span>').join('');
+            const calendarTime = e.calendar_time || e.start_time || '时间待定';
+            const calendarLabel = e.calendar_time_label || (e.calendar_time ? '日历时间' : '活动时间');
+            const fav = !!(e.is_favorite || e.favorite);
+            const status = e.status || 'pending';
+            const confirmAction = status === 'confirmed'
+                ? '<button class="mini" disabled>已确认</button>'
+                : '<button class="mini" onclick="quickUpdate(&quot;' + esc(e.id) + '&quot;, {status:&quot;confirmed&quot;})">确认</button>';
+            const ignoreAction = status === 'ignored'
+                ? '<button class="mini" onclick="quickUpdate(&quot;' + esc(e.id) + '&quot;, {status:&quot;pending&quot;})">恢复待确认</button>'
+                : '<button class="mini" onclick="quickUpdate(&quot;' + esc(e.id) + '&quot;, {status:&quot;ignored&quot;})">忽略</button>';
+            return '<article class="event-card">' +
+                '<div class="event-card-top"><div><div class="event-title">' + (fav ? '★ ' : '') + esc(e.title) + '</div></div><span class="badge level level-' + esc(e.level || e.priority || 'B') + '">' + esc(e.level || e.priority || 'B') + '</span></div>' +
+                '<div class="event-meta"><span>' + esc(calendarLabel + '：' + calendarTime) + '</span><span>' + esc(e.location || '地点待定') + '</span><span>' + esc(e.source_name || e.account || '未知来源') + '</span><span class="badge status-' + esc(status) + '">' + esc(statusText(status)) + '</span></div>' +
+                '<div class="tags">' + tags + '</div>' +
+                '<div class="reason">' + esc(e.reason || '暂无推荐理由') + '</div>' +
+                '<div class="card-actions"><button class="mini" onclick="toggleFavorite(&quot;' + esc(e.id) + '&quot;, ' + (!fav) + ')">' + (fav ? '取消收藏' : '收藏') + '</button><button class="mini" onclick="openEdit(&quot;' + esc(e.id) + '&quot;)">编辑</button>' + confirmAction + ignoreAction + '<button class="mini danger" onclick="deleteEvent(&quot;' + esc(e.id) + '&quot;, &quot;' + esc(e.title) + '&quot;)">删除</button>' + (e.source_url ? '<a class="btn mini" href="' + esc(e.source_url) + '" target="_blank">来源</a>' : '') + '</div>' +
+                '</article>';
+        }
+        async function toggleFavorite(id, favorite) {
+            await fetch('/api/events/' + encodeURIComponent(id) + '/favorite?favorite=' + String(!!favorite), { method: 'POST' });
+            loadEvents();
+        }
+        function openEdit(id) {
+            const e = currentEvents.find(item => item.id === id);
+            if (!e) return;
+            document.getElementById('editId').value = e.id;
+            document.getElementById('editTitle').value = e.title || '';
+            document.getElementById('editTags').value = (e.tags || []).join('，');
+            document.getElementById('editStart').value = e.start_time || '';
+            document.getElementById('editEnd').value = e.end_time || '';
+            document.getElementById('editLocation').value = e.location || '';
+            document.getElementById('editCity').value = e.city || '';
+            document.getElementById('editLevel').value = e.level || e.priority || 'B';
+            document.getElementById('editStatus').value = e.status || 'pending';
+            document.getElementById('editDeadline').value = e.registration_deadline || e.signup_deadline || '';
+            document.getElementById('editRegLink').value = e.registration_link || e.signup_url || '';
+            document.getElementById('editReason').value = e.reason || '';
+            document.getElementById('editDesc').value = e.description || '';
+            const sourceUrl = e.source_url || e.source_article_url || '';
+            const sourceRow = document.getElementById('editSourceRow');
+            const sourceLink = document.getElementById('editSourceLink');
+            if (sourceUrl) {
+                sourceRow.style.display = '';
+                sourceLink.href = sourceUrl;
+                sourceLink.textContent = '打开公众号原文';
+            } else {
+                sourceRow.style.display = 'none';
+                sourceLink.href = '#';
+            }
+            setLine('editStatusLine', '');
+            openModal('editModal');
+        }
+        async function quickUpdate(id, updates) {
+            const beforeFilter = document.getElementById('statusFilter').value;
+            const res = await fetch('/api/events/' + encodeURIComponent(id), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates) });
+            const data = await res.json();
+            if (!res.ok || !data.success) return setLine('calendarStatus', data.detail || '更新失败', 'err');
+            await loadEvents({ keepStatus: true });
+            const nextStatus = updates.status || (data.data && data.data.event && data.data.event.status) || '';
+            let msg = nextStatus ? '已更新为“' + statusText(nextStatus) + '”' : '已更新活动';
+            if (beforeFilter && nextStatus && beforeFilter !== nextStatus) {
+                msg += '。当前筛选是“' + statusText(beforeFilter) + '”，所以这条活动会从当前视图移走。';
+            } else if (nextStatus === 'ignored') {
+                msg += '，默认日历会隐藏它。';
+            } else if (nextStatus === 'confirmed') {
+                msg += '，后续重复导入会保留这个确认状态。';
+            }
+            setLine('calendarStatus', msg, 'ok');
+        }
+        async function deleteEvent(id, title) {
+            const name = title || '这个活动';
+            if (!window.confirm('确定要彻底删除“' + name + '”吗？这不是忽略，删除后会从活动库、日历和 ICS 中移除。')) return;
+            const res = await fetch('/api/events/' + encodeURIComponent(id), { method: 'DELETE' });
+            const data = await res.json();
+            if (!res.ok || !data.success) return setLine('calendarStatus', data.detail || '删除失败', 'err');
+            await loadEvents({ keepStatus: true });
+            setLine('calendarStatus', '已彻底删除“' + name + '”', 'ok');
+        }
+        async function deleteCurrentEvent() {
+            const id = document.getElementById('editId').value;
+            const title = document.getElementById('editTitle').value;
+            if (!id) return;
+            const name = title || '这个活动';
+            if (!window.confirm('确定要彻底删除“' + name + '”吗？这不是忽略，删除后会从活动库、日历和 ICS 中移除。')) return;
+            const res = await fetch('/api/events/' + encodeURIComponent(id), { method: 'DELETE' });
+            const data = await res.json();
+            if (!res.ok || !data.success) return setLine('editStatusLine', data.detail || '删除失败', 'err');
+            closeModal('editModal');
+            await loadEvents({ keepStatus: true });
+            setLine('calendarStatus', '已彻底删除“' + name + '”', 'ok');
+        }
+        async function saveEdit() {
+            const id = document.getElementById('editId').value;
+            const body = {
+                title: document.getElementById('editTitle').value,
+                tags: lines(document.getElementById('editTags').value),
+                start_time: document.getElementById('editStart').value,
+                end_time: document.getElementById('editEnd').value,
+                location: document.getElementById('editLocation').value,
+                city: document.getElementById('editCity').value,
+                level: document.getElementById('editLevel').value,
+                status: document.getElementById('editStatus').value,
+                registration_deadline: document.getElementById('editDeadline').value,
+                registration_link: document.getElementById('editRegLink').value,
+                reason: document.getElementById('editReason').value,
+                description: document.getElementById('editDesc').value
+            };
+            const res = await fetch('/api/events/' + encodeURIComponent(id), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            const data = await res.json();
+            if (!res.ok || !data.success) return setLine('editStatusLine', data.detail || '保存失败', 'err');
+            setLine('editStatusLine', '已保存', 'ok');
+            loadEvents();
+        }
+        async function saveManualEvent() {
+            const file = document.getElementById('manualImage').files[0];
+            const body = {
+                mode: document.getElementById('manualMode').value,
+                pasted_text: document.getElementById('manualText').value,
+                link: document.getElementById('manualLink').value,
+                image_path: file ? file.name : '',
+                title: document.getElementById('manualTitle').value,
+                start_time: document.getElementById('manualStart').value,
+                end_time: document.getElementById('manualEnd').value,
+                location: document.getElementById('manualLocation').value,
+                city: document.getElementById('manualCity').value,
+                organizer: document.getElementById('manualOrganizer').value,
+                description: document.getElementById('manualDesc').value,
+                registration_deadline: document.getElementById('manualDeadline').value,
+                registration_link: document.getElementById('manualRegLink').value,
+                tags: lines(document.getElementById('manualTags').value),
+                level: document.getElementById('manualLevel').value || null
+            };
+            const res = await fetch('/api/events/manual', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            const data = await res.json();
+            if (!res.ok || !data.success) return setLine('manualStatus', data.detail || '保存失败', 'err');
+            setLine('manualStatus', '已保存到我的活动日历', 'ok');
+            loadEvents();
+        }
+        async function runAccountRange() {
+            const btn = document.getElementById('extractBtn');
+            btn.disabled = true;
+            setLine('extractStatus', '任务已提交，下面会实时显示抓取进度。');
+            resetExtractProgress();
+            const startDate = normalizeDateInput(document.getElementById('extractStart').value);
+            const endDate = normalizeDateInput(document.getElementById('extractEnd').value || document.getElementById('extractStart').value);
+            if (!startDate || !endDate) {
+                setLine('extractStatus', '日期格式请使用 2026-05-21，留空则默认今天。', 'err');
+                btn.disabled = false;
+                return;
+            }
+            const body = {
+                account: document.getElementById('extractAccount').value,
+                start_date: startDate,
+                end_date: endDate,
+                use_llm: document.getElementById('extractLlm').value === 'true',
+                use_vision: document.getElementById('extractVision').value === 'true'
+            };
+            try {
+                const res = await fetch('/api/events/run-account-range/progress', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                const data = await res.json();
+                if (!res.ok || !data.success) throw new Error(humanError(data.detail) || '提取失败');
+                await pollExtractJob(data.data.job_id);
+            } catch (err) {
+                setLine('extractStatus', err.message || String(err), 'err');
+                btn.disabled = false;
+            }
+        }
+        function humanError(detail) {
+            if (Array.isArray(detail)) {
+                const dateError = detail.find(item => item.type === 'string_pattern_mismatch' && String(item.loc || '').includes('date'));
+                if (dateError) return '日期格式请使用 2026-05-21，留空则默认今天。';
+                return detail.map(item => item.msg || String(item)).join('；');
+            }
+            return detail || '';
+        }
+        function resetExtractProgress() {
+            document.getElementById('extractProgress').classList.add('open');
+            document.getElementById('extractProgressFill').style.width = '1%';
+            document.getElementById('extractProgressMessage').textContent = '任务已创建，等待开始抓取';
+            document.getElementById('extractProgressLog').innerHTML = '';
+        }
+        function renderExtractJob(job) {
+            document.getElementById('extractProgress').classList.add('open');
+            document.getElementById('extractProgressFill').style.width = (job.percent || 0) + '%';
+            document.getElementById('extractProgressMessage').textContent =
+                (job.percent || 0) + '% · ' + (job.message || '处理中');
+            document.getElementById('extractProgressLog').innerHTML = (job.logs || []).slice(-12).reverse().map(log => {
+                const time = log.at ? new Date(log.at * 1000).toLocaleTimeString() : '';
+                return '<div>' + esc(time) + ' · ' + esc(log.stage || '') + ' · ' + esc(log.message || '') + '</div>';
+            }).join('');
+        }
+        async function pollExtractJob(jobId) {
+            const btn = document.getElementById('extractBtn');
+            while (true) {
+                const res = await fetch('/api/events/jobs/' + encodeURIComponent(jobId));
+                const data = await res.json();
+                if (!res.ok || !data.success) throw new Error(data.detail || '进度读取失败');
+                const job = data.data.job;
+                renderExtractJob(job);
+                if (job.status === 'success') {
+                    const result = job.result || {};
+                    setLine('extractStatus', '完成：文章 ' + (result.article_count || 0) + ' 篇，活动 ' + (result.event_count || 0) + ' 个，已保存 ' + (result.saved_count || 0) + ' 个', 'ok');
+                    btn.disabled = false;
+                    loadEvents();
+                    return;
+                }
+                if (job.status === 'failed') {
+                    setLine('extractStatus', job.error || job.message || '提取失败', 'err');
+                    btn.disabled = false;
+                    return;
+                }
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+        async function loadSources() {
+            const res = await fetch('/api/events/sources');
+            const data = await res.json();
+            const list = data.data.sources || [];
+            document.getElementById('sourceList').innerHTML = list.map(s => '<div class="source-row"><div><strong>' + esc(s.name) + '</strong><p>' + esc(s.source_type) + ' · ' + esc(s.alias || s.fakeid || s.url || '') + ' · ' + (s.auto_fetch ? '参与定时抓取' : '不参与定时抓取') + '</p></div><div class="row-actions"><button class="mini" onclick="toggleSourceAutoFetch(&quot;' + esc(s.id) + '&quot;, ' + (!s.auto_fetch) + ')">' + (s.auto_fetch ? '暂停定时' : '加入定时') + '</button><button class="mini" onclick="deleteSource(&quot;' + esc(s.id) + '&quot;)">删除</button></div></div>').join('') || '<div class="empty"><strong>暂无信息源</strong></div>';
+        }
+        async function toggleSourceAutoFetch(id, autoFetch) {
+            const res = await fetch('/api/events/sources/' + encodeURIComponent(id), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ auto_fetch: !!autoFetch }) });
+            const data = await res.json();
+            if (!res.ok || !data.success) return setLine('sourceStatus', data.detail || '更新失败', 'err');
+            loadSources();
+        }
+        async function addSource() {
+            const body = {
+                source_type: document.getElementById('sourceType').value,
+                name: document.getElementById('sourceName').value,
+                fakeid: document.getElementById('sourceFakeid').value,
+                url: document.getElementById('sourceUrl').value
+            };
+            setLine('sourceStatus', body.source_type === 'wechat' ? '正在搜索公众号并解析 fakeid...' : '正在添加链接源...');
+            const res = await fetch('/api/events/sources', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            const data = await res.json();
+            if (!res.ok || !data.success) return setLine('sourceStatus', data.detail || '添加失败', 'err');
+            setLine('sourceStatus', '已添加信息源', 'ok');
+            loadSources();
+        }
+        async function deleteSource(id) {
+            await fetch('/api/events/sources/' + encodeURIComponent(id), { method: 'DELETE' });
+            loadSources();
+        }
+        async function loadProfile() {
+            const data = await (await fetch('/api/events/profile')).json();
+            const p = data.data.profile || {};
+            document.getElementById('profileIdentity').value = p.identity || '';
+            document.getElementById('profileProfession').value = p.profession || '';
+            document.getElementById('profileResearch').value = p.research_direction || '';
+            document.getElementById('profileInterests').value = (p.interests || []).join('\n');
+            document.getElementById('profileKeywords').value = (p.priority_keywords || []).join('\n');
+            document.getElementById('profileAvoid').value = (p.avoid_topics || []).join('\n');
+        }
+        async function saveProfile() {
+            const body = {
+                identity: document.getElementById('profileIdentity').value,
+                profession: document.getElementById('profileProfession').value,
+                research_direction: document.getElementById('profileResearch').value,
+                interests: lines(document.getElementById('profileInterests').value),
+                priority_keywords: lines(document.getElementById('profileKeywords').value),
+                avoid_topics: lines(document.getElementById('profileAvoid').value)
+            };
+            const res = await fetch('/api/events/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            const data = await res.json();
+            setLine('profileStatus', data.success ? '已保存画像，后续活动会按新画像分级' : (data.detail || '保存失败'), data.success ? 'ok' : 'err');
+        }
+        async function loadSettings() {
+            const data = await (await fetch('/api/events/settings')).json();
+            const s = data.data.settings || {};
+            const automation = data.data.automation || {};
+            const safety = data.data.fetch_safety || automation.fetch_safety || {};
+            document.getElementById('settingEnabled').value = String(!!s.daily_fetch_enabled);
+            document.getElementById('settingTime').value = s.daily_fetch_time || '07:30';
+            document.getElementById('settingLookbackDays').value = s.daily_fetch_lookback_days || 0;
+            document.getElementById('settingRetentionDays').value = s.event_retention_days || 15;
+            document.getElementById('settingImport').value = String(s.auto_import_calendar !== false);
+            document.getElementById('settingLlm').value = String(s.use_llm !== false);
+            document.getElementById('settingVision').value = String(!!s.use_vision);
+            document.getElementById('settingMaxChars').value = s.max_chars || 9000;
+            document.getElementById('settingFetchConcurrency').value = s.wechat_fetch_concurrency || 1;
+            document.getElementById('settingFetchDelayMin').value = s.wechat_fetch_delay_min ?? 3;
+            document.getElementById('settingFetchDelayMax').value = s.wechat_fetch_delay_max ?? 8;
+            document.getElementById('settingAccountDelay').value = s.wechat_account_delay ?? 10;
+            document.getElementById('settingMaxArticlesPerAccount').value = s.wechat_max_articles_per_account || 20;
+            document.getElementById('settingVerificationPause').value = s.wechat_verification_pause_minutes ?? 30;
+            document.getElementById('settingVerificationThreshold').value = s.wechat_verification_stop_threshold || 2;
+            document.getElementById('settingProxyRequired').value = String(!!s.wechat_proxy_required);
+            renderFetchSafetyStatus(safety);
+            renderAutomationProgress(automation.progress || {});
+        }
+        async function saveSettings() {
+            const body = {
+                daily_fetch_enabled: document.getElementById('settingEnabled').value === 'true',
+                daily_fetch_time: document.getElementById('settingTime').value || '07:30',
+                daily_fetch_lookback_days: Number(document.getElementById('settingLookbackDays').value || 0),
+                event_retention_days: Number(document.getElementById('settingRetentionDays').value || 15),
+                auto_import_calendar: document.getElementById('settingImport').value === 'true',
+                use_llm: document.getElementById('settingLlm').value === 'true',
+                use_vision: document.getElementById('settingVision').value === 'true',
+                max_chars: Number(document.getElementById('settingMaxChars').value || 9000),
+                wechat_fetch_concurrency: Number(document.getElementById('settingFetchConcurrency').value || 1),
+                wechat_fetch_delay_min: Number(document.getElementById('settingFetchDelayMin').value || 0),
+                wechat_fetch_delay_max: Number(document.getElementById('settingFetchDelayMax').value || 0),
+                wechat_account_delay: Number(document.getElementById('settingAccountDelay').value || 0),
+                wechat_max_articles_per_account: Number(document.getElementById('settingMaxArticlesPerAccount').value || 20),
+                wechat_verification_pause_minutes: Number(document.getElementById('settingVerificationPause').value || 0),
+                wechat_verification_stop_threshold: Number(document.getElementById('settingVerificationThreshold').value || 2),
+                wechat_proxy_required: document.getElementById('settingProxyRequired').value === 'true'
+            };
+            const res = await fetch('/api/events/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            const data = await res.json();
+            setLine('settingsStatus', data.success ? '设置已保存' : (data.detail || '保存失败'), data.success ? 'ok' : 'err');
+            if (data.success) renderFetchSafetyStatus((data.data && data.data.fetch_safety) || {});
+        }
+        async function runAutomationNow() {
+            setLine('settingsStatus', '正在执行定时抓取流程...');
+            resetAutomationProgress();
+            const promise = fetch('/api/automation/run-events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ poll: true, lookback_days: Number(document.getElementById('settingLookbackDays').value || 0) }) });
+            await pollAutomationProgress(true);
+            const res = await promise;
+            const data = await res.json();
+            setLine('settingsStatus', data.success ? '抓取完成' : (data.detail || '抓取失败'), data.success ? 'ok' : 'err');
+            loadRuns();
+            loadEvents();
+        }
+        async function cleanupDuplicateEvents() {
+            setLine('settingsStatus', '正在清理重复活动...');
+            const res = await fetch('/api/events/cleanup-duplicates', { method: 'POST' });
+            const data = await res.json();
+            if (!res.ok || !data.success) return setLine('settingsStatus', data.detail || '清理失败', 'err');
+            setLine('settingsStatus', '已清理重复活动 ' + (data.data.deleted_count || 0) + ' 条', 'ok');
+            loadEvents();
+        }
+        async function cleanupOldEvents() {
+            const retentionDays = Number(document.getElementById('settingRetentionDays').value || 15);
+            setLine('settingsStatus', '正在清理过期未收藏活动...');
+            const res = await fetch('/api/events/cleanup?retention_days=' + encodeURIComponent(retentionDays), { method: 'POST' });
+            const data = await res.json();
+            if (!res.ok || !data.success) return setLine('settingsStatus', data.detail || '清理失败', 'err');
+            setLine('settingsStatus', '已清理过期活动 ' + (data.data.deleted_count || 0) + ' 条，文件 ' + (data.data.deleted_file_count || 0) + ' 个', 'ok');
+            loadEvents();
+        }
+        function resetAutomationProgress() {
+            document.getElementById('automationProgress').classList.add('open');
+            document.getElementById('automationProgressFill').style.width = '1%';
+            document.getElementById('automationProgressMessage').textContent = '任务已提交，等待开始';
+            document.getElementById('automationProgressLog').innerHTML = '';
+        }
+        function renderAutomationProgress(progress) {
+            const box = document.getElementById('automationProgress');
+            if (!box) return;
+            if (!progress || (!progress.active && !progress.updated_at)) {
+                box.classList.remove('open');
+                return;
+            }
+            box.classList.add('open');
+            document.getElementById('automationProgressFill').style.width = (progress.percent || 0) + '%';
+            document.getElementById('automationProgressMessage').textContent =
+                (progress.percent || 0) + '% · ' + (progress.message || '处理中');
+            document.getElementById('automationProgressLog').innerHTML = (progress.logs || []).slice(-12).reverse().map(log => {
+                const time = log.at ? new Date(log.at * 1000).toLocaleTimeString() : '';
+                return '<div>' + esc(time) + ' · ' + esc(log.stage || '') + ' · ' + esc(log.message || '') + '</div>';
+            }).join('');
+        }
+        function renderFetchSafetyStatus(safety) {
+            const el = document.getElementById('fetchSafetyStatus');
+            if (!el) return;
+            const proxy = safety.proxy_pool || {};
+            const cfg = safety.config || {};
+            const bits = [
+                safety.paused ? ('冷却中，剩余 ' + Math.ceil((safety.cooldown_remaining_seconds || 0) / 60) + ' 分钟') : '防风控状态正常',
+                '代理 ' + (proxy.enabled ? (proxy.healthy + '/' + proxy.total + ' 可用') : '未启用'),
+                '并发 ' + (cfg.article_concurrency || '-'),
+                '间隔 ' + (cfg.article_delay_min ?? '-') + '-' + (cfg.article_delay_max ?? '-') + ' 秒'
+            ];
+            el.className = 'status-line ' + (safety.paused ? 'err' : 'ok');
+            el.textContent = bits.join(' · ');
+        }
+        async function pollAutomationProgress(stopWhenIdle) {
+            let seenActive = false;
+            let idleChecks = 0;
+            while (true) {
+                const res = await fetch('/api/automation/status');
+                const data = await res.json();
+                const progress = (data.data && data.data.progress) || {};
+                const safety = (data.data && data.data.fetch_safety) || {};
+                renderAutomationProgress(progress);
+                renderFetchSafetyStatus(safety);
+                if (progress.active) seenActive = true;
+                if (!progress.active && stopWhenIdle && seenActive) return;
+                if (!progress.active && stopWhenIdle && !seenActive && ++idleChecks >= 5) return;
+                if (!stopWhenIdle) return;
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+        async function loadRuns() {
+            const res = await fetch('/api/automation/runs?limit=8');
+            const data = await res.json();
+            const runs = (data.data && data.data.runs) || [];
+            document.getElementById('runLog').innerHTML = runs.map(r => '<div class="log-row"><div><strong>' + esc(r.status) + '</strong><p>' + esc(r.started_at ? new Date(r.started_at * 1000).toLocaleString() : '-') + ' · ' + esc(r.duration_seconds || 0) + 's · ' + esc(r.error || '') + '</p></div></div>').join('') || '<div class="empty"><strong>暂无抓取日志</strong></div>';
+        }
+        document.getElementById('monthInput').value = todayChina().slice(0, 7);
+        document.getElementById('extractStart').value = todayChina();
+        document.getElementById('extractEnd').value = todayChina();
+        setView('month');
+    </script>
+</body>
+</html>

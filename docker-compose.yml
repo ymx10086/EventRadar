@@ -1,0 +1,40 @@
+# EventRadar - Docker Compose
+# Usage: docker-compose up -d
+#
+# First time setup:
+#   1. Copy env.example to .env: cp env.example .env
+#   2. Edit .env and set SITE_URL to your actual URL
+#   3. Run: docker-compose up -d
+#   4. Visit http://localhost:5000/login.html to scan QR code
+#
+# Note for NAS users (Synology/QNAP):
+#   If you encounter permission issues, run on NAS:
+#   - chmod -R 777 ./data
+#   - Credentials are automatically saved to ./data directory
+
+services:
+  eventradar:
+    build: .
+    # Or use a published image if you maintain one:
+    # image: your-dockerhub/eventradar:latest
+    container_name: eventradar
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${PORT:-5000}:${PORT:-5000}"
+    volumes:
+      # Persist SQLite database and credentials
+      - ./data:/app/data
+      - ./logs:/app/logs
+      # Config file (read-only - credentials saved to data/)
+      - ./.env:/app/.env:ro
+    environment:
+      - TZ=Asia/Shanghai
+      - HOST=0.0.0.0
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:$${PORT:-5000}/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s

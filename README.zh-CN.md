@@ -68,6 +68,10 @@ EventRadar 的底层组合：
 
 ## 架构
 
+<p align="center">
+  <img src="imgs/framework_CN.png" alt="EventRadar 架构图" width="820">
+</p>
+
 ```text
 .
 ├── app.py                         # FastAPI 主入口，启动 RSS、自动化、登录提醒等后台任务

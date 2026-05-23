@@ -68,6 +68,10 @@ Under the hood, EventRadar combines:
 
 ## Architecture
 
+<p align="center">
+  <img src="imgs/framework.png" alt="EventRadar architecture" width="820">
+</p>
+
 ```text
 .
 ├── app.py                         # FastAPI entrypoint; starts RSS, automation, and login reminders

@@ -68,6 +68,26 @@ EventRadar 的底层组合：
 | **⚙️ 定时自动化** | 自动轮询、归档、读图、抽取、去重、入库，并在页面展示进度。 |
 | **🌐 公网访问** | 可配合 `cloudflared` 生成临时 `trycloudflare.com` 公网地址。 |
 
+## 页面展示
+
+### 活动日历主工作台
+
+<p align="center">
+  <img src="imgs/main1.png" alt="EventRadar 活动日历主工作台" width="860">
+</p>
+
+| 日历视图与活动审核 | 活动详情与编辑 |
+| --- | --- |
+| <img src="imgs/main2.png" alt="EventRadar 日历视图" width="430"> | <img src="imgs/main3.png" alt="EventRadar 活动详情" width="430"> |
+
+| 更多日历交互 | 管理后台 |
+| --- | --- |
+| <img src="imgs/main4.png" alt="EventRadar 日历交互" width="430"> | <img src="imgs/admin.png" alt="EventRadar 管理后台" width="430"> |
+
+| 信息源管理 | 个人信息 | 自动化设置 |
+| --- | --- | --- |
+| <img src="imgs/source5.png" alt="信息源管理" width="280"> | <img src="imgs/person6.png" alt="个人信息" width="280"> | <img src="imgs/setting7.png" alt="自动化设置" width="280"> |
+
 ## 架构
 
 <p align="center">

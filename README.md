@@ -68,6 +68,26 @@ Under the hood, EventRadar combines:
 | **⚙️ Automation** | Runs scheduled polling, archiving, extraction, dedupe, saving, and progress tracking. |
 | **🌐 Public access** | Works with `cloudflared` for a temporary `trycloudflare.com` URL when needed. |
 
+## Product Screenshots
+
+### Main Calendar Workspace
+
+<p align="center">
+  <img src="imgs/main1.png" alt="EventRadar main calendar workspace" width="860">
+</p>
+
+| Calendar views and event review | Event detail and editing |
+| --- | --- |
+| <img src="imgs/main2.png" alt="EventRadar calendar view" width="430"> | <img src="imgs/main3.png" alt="EventRadar event detail view" width="430"> |
+
+| More calendar interactions | Admin console |
+| --- | --- |
+| <img src="imgs/main4.png" alt="EventRadar calendar interactions" width="430"> | <img src="imgs/admin.png" alt="EventRadar admin console" width="430"> |
+
+| Source management | Personal profile | Automation settings |
+| --- | --- | --- |
+| <img src="imgs/source5.png" alt="Source management" width="280"> | <img src="imgs/person6.png" alt="Personal profile" width="280"> | <img src="imgs/setting7.png" alt="Automation settings" width="280"> |
+
 ## Architecture
 
 <p align="center">

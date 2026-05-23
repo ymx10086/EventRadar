@@ -395,6 +395,85 @@ curl http://localhost:5001/api/health
 - 代理稳定后可把并发调到 `2`；不建议长期超过 `3`。
 - 如果触发微信验证，系统会自动进入 60 分钟冷却，设置页会显示剩余冷却时间；冷却期间定时抓取会停止本轮任务。
 
+### SOCKS5 代理池配置（强烈建议）
+
+启用完整内容获取时，强烈建议配置代理池，避免账号被微信风控。不配置代理、直连微信可能导致频繁验证、账号限制或 IP 封禁。配置 2-3 个代理 IP 可以有效分散请求，降低风控风险。
+
+用途：获取文章完整内容时分散请求 IP，配合 Chrome TLS 指纹模拟，有效规避微信风控。本项目使用 `curl_cffi` 模拟 Chrome TLS 指纹，请求特征与真实浏览器一致，配合代理池效果更佳。
+
+推荐方案：准备 2-3 台低价 VPS（各大云厂商轻量应用服务器即可），每台运行一个 SOCKS5 代理服务。推荐使用 `gost`，它是 Go 语言实现的单二进制代理工具，无需额外依赖。
+
+#### 1. 在每台 VPS 上安装 gost
+
+```bash
+# 下载指定版本（以 Linux amd64 为例，其他架构请去 GitHub Releases 页面选择）
+# 国外服务器直接下载
+wget https://github.com/go-gost/gost/releases/download/v3.2.6/gost_3.2.6_linux_amd64.tar.gz
+
+# 国内服务器可使用加速镜像（任选一个可用的）
+wget https://gh-proxy.com/https://github.com/go-gost/gost/releases/download/v3.2.6/gost_3.2.6_linux_amd64.tar.gz
+# 或
+wget https://ghproxy.cc/https://github.com/go-gost/gost/releases/download/v3.2.6/gost_3.2.6_linux_amd64.tar.gz
+
+# 解压并移动到系统路径
+tar -xzf gost_3.2.6_linux_amd64.tar.gz
+mv gost /usr/local/bin/
+chmod +x /usr/local/bin/gost
+
+# 验证安装
+gost -V
+```
+
+#### 2. 启动 SOCKS5 代理服务
+
+```bash
+# 带用户名密码认证（推荐，替换 myuser / mypass 和端口）
+gost -L socks5://myuser:mypass@:1080
+
+# 不带认证（仅内网或已配置防火墙时使用）
+gost -L socks5://:1080
+```
+
+#### 3. 配置为 systemd 服务（开机自启）
+
+```bash
+cat > /etc/systemd/system/gost.service << 'EOF'
+[Unit]
+Description=GOST Proxy
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/gost -L socks5://myuser:mypass@:1080
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable gost
+systemctl start gost
+```
+
+#### 4. 开放防火墙端口
+
+```bash
+# 仅允许你的主服务器 IP 连接（替换为实际 IP）
+ufw allow from YOUR_MAIN_SERVER_IP to any port 1080
+```
+
+如果使用云厂商安全组，也需要在控制台添加入站规则：端口 `1080` / TCP / 来源 IP 限制为你的主服务器。
+
+#### 5. 在主服务器 `.env` 中配置代理池
+
+```env
+PROXY_URLS=socks5://myuser:mypass@vps1-ip:1080,socks5://myuser:mypass@vps2-ip:1080,socks5://myuser:mypass@vps3-ip:1080
+```
+
+配置后重启服务，每次文章请求会轮流使用不同的代理 IP。可以通过 `GET /api/health` 确认代理池状态。留空则直连，这是默认行为。
+
 ## 测试
 
 ```bash

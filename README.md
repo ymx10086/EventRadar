@@ -395,6 +395,85 @@ Anti-risk suggestions:
 - After proxies are stable, concurrency can be raised to `2`; staying above `3` long term is not recommended.
 - If verification is triggered, the system enters a 60-minute cooldown, shows the remaining cooldown in settings, and stops the current scheduled run.
 
+### SOCKS5 Proxy Pool (Strongly Recommended)
+
+When full-content fetching is enabled, a proxy pool is strongly recommended to reduce the chance of WeChat risk checks. Direct connections without proxies may lead to frequent verification prompts, account restrictions, or IP blocking. Using 2-3 proxy IPs helps distribute requests and lowers operational risk.
+
+Purpose: distribute article full-content requests across multiple IPs while using Chrome TLS fingerprint simulation. EventRadar uses `curl_cffi` to mimic Chrome-like TLS fingerprints, so requests look closer to real browser traffic; a proxy pool makes this setup more robust.
+
+Recommended setup: prepare 2-3 low-cost VPS instances and run one SOCKS5 proxy service on each. `gost` is recommended because it is a single Go binary with no extra runtime dependencies.
+
+#### 1. Install gost on each VPS
+
+```bash
+# Download the release package. This example uses Linux amd64.
+# For other architectures, choose the matching file from GitHub Releases.
+wget https://github.com/go-gost/gost/releases/download/v3.2.6/gost_3.2.6_linux_amd64.tar.gz
+
+# If GitHub downloads are slow, use an acceleration mirror when available.
+wget https://gh-proxy.com/https://github.com/go-gost/gost/releases/download/v3.2.6/gost_3.2.6_linux_amd64.tar.gz
+# or
+wget https://ghproxy.cc/https://github.com/go-gost/gost/releases/download/v3.2.6/gost_3.2.6_linux_amd64.tar.gz
+
+# Extract and install
+tar -xzf gost_3.2.6_linux_amd64.tar.gz
+mv gost /usr/local/bin/
+chmod +x /usr/local/bin/gost
+
+# Verify installation
+gost -V
+```
+
+#### 2. Start the SOCKS5 proxy
+
+```bash
+# With username/password authentication (recommended; replace myuser / mypass / port)
+gost -L socks5://myuser:mypass@:1080
+
+# Without authentication (only for private networks or strict firewall rules)
+gost -L socks5://:1080
+```
+
+#### 3. Configure systemd for auto-start
+
+```bash
+cat > /etc/systemd/system/gost.service << 'EOF'
+[Unit]
+Description=GOST Proxy
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/gost -L socks5://myuser:mypass@:1080
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable gost
+systemctl start gost
+```
+
+#### 4. Open the firewall port
+
+```bash
+# Allow only your main server IP to connect. Replace with the real IP.
+ufw allow from YOUR_MAIN_SERVER_IP to any port 1080
+```
+
+If you use a cloud security group, add an inbound rule in the provider console: port `1080` / TCP / source IP restricted to your main server.
+
+#### 5. Configure the proxy pool in the main server `.env`
+
+```env
+PROXY_URLS=socks5://myuser:mypass@vps1-ip:1080,socks5://myuser:mypass@vps2-ip:1080,socks5://myuser:mypass@vps3-ip:1080
+```
+
+Restart the service after configuration. Article requests will rotate across proxy IPs. You can verify proxy-pool status with `GET /api/health`. Leaving `PROXY_URLS` empty uses direct connections, which is the default behavior.
+
 ## Testing
 
 ```bash

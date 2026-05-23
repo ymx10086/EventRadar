@@ -54,17 +54,19 @@ Under the hood, EventRadar combines:
 
 ## What You Get Today
 
-- **WeChat fetching and RSS foundation**: log in by QR code, search and subscribe to accounts, and poll article lists and full content.
-- **Daily archive**: generate `data/daily_archives/YYYY-MM-DD/articles.json` and download cover/body images.
-- **Vision understanding**: image-only WeChat posts can be interpreted by MiniMax Token Plan vision to recover event details.
-- **Event extraction**: combine article text and image understanding results, then extract structured events with LLM and fallback rules.
-- **Calendar-first timing**: when signup open/deadline comes before the event start, the calendar can prioritize the earlier actionable date.
-- **Re-import dedupe**: repeated imports for the same day, account, or article keep one event record and preserve review state.
-- **Event store management**: manage `pending` / `confirmed` / `ignored` states, `S/A/B/C` priority, favorites, and cleanup rules.
-- **Calendar UI and day details**: `events.html` supports filters, month/week/list views, day modals, editing, and favorites.
-- **ICS subscription**: subscribe to `/api/events/calendar.ics` from Apple Calendar, Google Calendar, Outlook, and more.
-- **Scheduled automation**: run scheduled polling, archiving, extraction, dedupe, saving, and progress tracking.
-- **Public access**: expose the local service with `cloudflared` and a temporary `trycloudflare.com` URL when needed.
+| Area | What it does |
+| --- | --- |
+| **🔐 WeChat & RSS** | QR login, account search, subscriptions, polling, article lists, and full-content fetching. |
+| **🗂️ Daily archive** | Writes `data/daily_archives/YYYY-MM-DD/articles.json` and downloads cover/body images. |
+| **👁️ Vision understanding** | Uses MiniMax Token Plan vision to recover details from image-only WeChat posts. |
+| **🧠 Event extraction** | Combines article text and vision output, then extracts structured events with LLM and fallback rules. |
+| **⏱️ Calendar-first timing** | Prioritizes signup open/deadline when they come before the event start. |
+| **🧹 Re-import dedupe** | Keeps one event record for repeated imports while preserving review state. |
+| **⭐ Event store** | Manages `pending` / `confirmed` / `ignored`, `S/A/B/C` priority, favorites, and cleanup rules. |
+| **🗓️ Calendar UI** | Provides filters, month/week/list views, day modals, editing, favorites, and manual entry. |
+| **📤 ICS & CSV export** | Serves `/api/events/calendar.ics` and CSV exports for downstream tools. |
+| **⚙️ Automation** | Runs scheduled polling, archiving, extraction, dedupe, saving, and progress tracking. |
+| **🌐 Public access** | Works with `cloudflared` for a temporary `trycloudflare.com` URL when needed. |
 
 ## Architecture
 
@@ -72,38 +74,16 @@ Under the hood, EventRadar combines:
   <img src="imgs/framework.png" alt="EventRadar architecture" width="820">
 </p>
 
-```text
-.
-├── app.py                         # FastAPI entrypoint; starts RSS, automation, and login reminders
-├── routes/
-│   ├── rss.py                     # RSS subscriptions, polling, and daily archive APIs
-│   ├── events.py                  # Event extraction, event store, ICS, cleanup, account-range runs
-│   ├── automation.py              # Automation APIs
-│   ├── login.py / admin.py        # WeChat QR login and admin APIs
-│   └── ...
-├── utils/
-│   ├── rss_poller.py              # WeChat account polling
-│   ├── daily_archive.py           # Daily article and image archives
-│   ├── event_extractor.py         # Vision understanding, event extraction, ICS export
-│   ├── event_store.py             # Event store, dedupe, favorites, cleanup
-│   ├── event_automation.py        # Scheduled pipeline and progress
-│   └── ...
-├── static/
-│   ├── admin.html                 # Admin panel
-│   └── events.html                # Main EventRadar calendar UI
-├── data/
-│   ├── rss.db                     # Account subscriptions and article cache
-│   ├── events.db                  # Event store
-│   ├── daily_archives/            # Daily article archives and images
-│   └── events/                    # Daily event exports
-├── env.example                    # Environment template
-├── start.sh                       # Local/server startup script, optional Cloudflare Tunnel
-└── docker-compose.yml
-```
+> The diagram above shows the main runtime layers and data flow. The detailed module responsibilities live in `app.py`, `routes/`, `utils/`, `static/`, and `data/`.
+
 
 ## Quick Start
 
 The recommended flow is to initialize the local environment, log in to WeChat, set up RSS subscriptions, archive articles, and then run event extraction.
+
+```text
+Create env -> Start backend -> WeChat QR login -> Subscribe accounts -> Poll RSS -> Archive articles/images -> Extract events -> Review calendar -> Subscribe ICS
+```
 
 ### 1. Create Environment
 
@@ -309,6 +289,12 @@ If you use the original upstream image, note that it may not include EventRadar'
 
 ## API Reference
 
+| Group | Entry points |
+| --- | --- |
+| **🩺 Health** | `/api/health` |
+| **🔐 WeChat foundation** | `/api/public/searchbiz`, `/api/article`, `/api/rss/*` |
+| **🗓️ Event calendar** | `/api/events/extract`, `/api/events/list`, `/api/events/calendar.ics`, `/api/events/settings` |
+
 ### Health Check
 
 ```bash
@@ -367,6 +353,8 @@ The calendar does not simply use `start_time`; it sorts by the earliest actionab
 5. Timezone-aware ISO timestamps are displayed on the correct local date.
 
 ## Configuration
+
+Most deployments only need to touch four groups first: service address, WeChat credentials, MiniMax extraction, and automation cadence.
 
 Common settings:
 

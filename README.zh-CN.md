@@ -54,17 +54,19 @@ EventRadar 的底层组合：
 
 ## 当前能力
 
-- **公众号抓取与 RSS 基座**：扫码登录微信公众号后台，搜索并订阅公众号，定时拉取文章列表与正文。
-- **每日归档**：按日期生成 `data/daily_archives/YYYY-MM-DD/articles.json`，并下载封面和正文图片。
-- **图片理解**：纯图片公众号文章会调用 MiniMax Token Plan 图片理解接口读取海报内容，例如活动名称、时间、地点、报名方式和主办方。
-- **活动抽取**：将正文文本、图片 OCR/图片理解结果合并后，用大模型和规则兜底抽取结构化活动。
-- **日历优先时间**：报名开始早于活动开始时，日历优先显示报名开始；报名截止早于活动开始时，优先显示报名截止。
-- **重复导入去重**：重复跑同一天、同公众号或同一篇文章时，只保留一条活动记录；收藏/确认状态会迁移到保留下来的记录。
-- **活动库管理**：支持 `pending` / `confirmed` / `ignored` 状态，`S/A/B/C` 分级，收藏保护，过期未收藏自动清理。
-- **大日历与当天详情**：`events.html` 提供横向筛选、月/周日历、当天活动弹窗、编辑和收藏。
-- **ICS 订阅**：长期日历地址 `/api/events/calendar.ics`，可接入 Apple Calendar、Google Calendar、Outlook 等。
-- **定时自动化**：可按配置每天自动轮询公众号、归档、读图、抽取、去重、写入活动库，并在页面查看进度。
-- **公网访问**：支持配合 `cloudflared` 快速生成 `trycloudflare.com` 公网访问地址。
+| 模块 | 能力 |
+| --- | --- |
+| **🔐 公众号与 RSS** | 扫码登录、搜索公众号、订阅、轮询、文章列表和完整正文抓取。 |
+| **🗂️ 每日归档** | 生成 `data/daily_archives/YYYY-MM-DD/articles.json`，并下载封面和正文图片。 |
+| **👁️ 图片理解** | 通过 MiniMax Token Plan 图片理解接口读取纯图片海报里的活动信息。 |
+| **🧠 活动抽取** | 合并正文文本和图片理解结果，用大模型与规则兜底抽取结构化活动。 |
+| **⏱️ 日历优先时间** | 当报名开始或报名截止早于活动开始时，优先显示这些更早需要行动的时间。 |
+| **🧹 重复导入去重** | 重复跑同一天、同公众号或同一篇文章时，只保留一条活动记录，并迁移审核状态。 |
+| **⭐ 活动库管理** | 支持 `pending` / `confirmed` / `ignored` 状态、`S/A/B/C` 分级、收藏保护和过期清理。 |
+| **🗓️ 活动日历 UI** | 支持筛选、月/周/列表视图、当天弹窗、编辑、收藏和手动添加。 |
+| **📤 ICS 与 CSV 导出** | 提供 `/api/events/calendar.ics` 长期订阅和 CSV 导出。 |
+| **⚙️ 定时自动化** | 自动轮询、归档、读图、抽取、去重、入库，并在页面展示进度。 |
+| **🌐 公网访问** | 可配合 `cloudflared` 生成临时 `trycloudflare.com` 公网地址。 |
 
 ## 架构
 
@@ -72,38 +74,16 @@ EventRadar 的底层组合：
   <img src="imgs/framework_CN.png" alt="EventRadar 架构图" width="820">
 </p>
 
-```text
-.
-├── app.py                         # FastAPI 主入口，启动 RSS、自动化、登录提醒等后台任务
-├── routes/
-│   ├── rss.py                     # RSS 订阅、轮询、每日归档接口
-│   ├── events.py                  # 活动抽取、活动库、ICS、清理、公众号范围跑
-│   ├── automation.py              # 自动化任务接口
-│   ├── login.py / admin.py        # 微信扫码登录与后台管理
-│   └── ...
-├── utils/
-│   ├── rss_poller.py              # 公众号轮询
-│   ├── daily_archive.py           # 每日文章和图片归档
-│   ├── event_extractor.py         # 图片理解、活动抽取、ICS 导出
-│   ├── event_store.py             # 活动库、去重、收藏、清理
-│   ├── event_automation.py        # 定时抓取和进度
-│   └── ...
-├── static/
-│   ├── admin.html                 # 原文章/RSS 管理面板
-│   └── events.html                # EventRadar 活动日历主界面
-├── data/
-│   ├── rss.db                     # 公众号订阅和文章缓存
-│   ├── events.db                  # 活动库
-│   ├── daily_archives/            # 每日文章归档和图片
-│   └── events/                    # 每日活动导出文件
-├── env.example                    # 配置模板
-├── start.sh                       # 本地/服务器启动脚本，可选 Cloudflare Tunnel
-└── docker-compose.yml
-```
+> 上方架构图展示了主要运行层级和数据流。更细的模块职责集中在 `app.py`、`routes/`、`utils/`、`static/` 和 `data/` 中。
+
 
 ## 快速开始
 
 下面是推荐的完整启动方式。因为 EventRadar 依赖原项目的微信公众号登录、RSS 订阅和文章抓取能力，所以启动后先完成“基座”部分，再使用活动日历。
+
+```text
+创建环境 -> 启动后端 -> 微信扫码登录 -> 订阅公众号 -> RSS 轮询 -> 归档文章/图片 -> 抽取活动 -> 审核日历 -> 订阅 ICS
+```
 
 ### 1. 创建环境
 
@@ -309,6 +289,12 @@ docker-compose logs -f
 
 ## 常用 API
 
+| 分组 | 入口 |
+| --- | --- |
+| **🩺 健康检查** | `/api/health` |
+| **🔐 公众号基座** | `/api/public/searchbiz`、`/api/article`、`/api/rss/*` |
+| **🗓️ 活动日历** | `/api/events/extract`、`/api/events/list`、`/api/events/calendar.ics`、`/api/events/settings` |
+
 ### 健康检查
 
 ```bash
@@ -367,6 +353,8 @@ curl http://localhost:5001/api/health
 5. 带时区的 ISO 时间，例如 `2026-05-23T13:30:00+08:00`，会按本地日期正确显示在 5月23日。
 
 ## 配置说明
+
+大多数部署优先关注四类配置：服务地址、微信凭证、MiniMax 抽取和自动化节奏。
 
 常用配置：
 

@@ -43,7 +43,7 @@ class WebhookNotifier:
     def webhook_url(self) -> str:
         """每次读取时从 .env 刷新，确保运行中修改配置也能生效"""
         from pathlib import Path
-        env_path = Path(__file__).resolve().parent.parent / ".env"
+        env_path = Path(os.getenv("EVENTRADAR_ENV_PATH", "")).expanduser() if os.getenv("EVENTRADAR_ENV_PATH") else Path(__file__).resolve().parent.parent / ".env"
         if env_path.exists():
             from dotenv import dotenv_values
             vals = dotenv_values(env_path)

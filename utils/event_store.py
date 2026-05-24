@@ -20,7 +20,7 @@ from zoneinfo import ZoneInfo
 
 DEFAULT_DB = Path(__file__).parent.parent / "data" / "events.db"
 DB_PATH = Path(os.getenv("EVENTS_DB_PATH", str(DEFAULT_DB)))
-DATA_ROOT = Path(__file__).parent.parent / "data"
+DATA_ROOT = Path(os.getenv("EVENTRADAR_DATA_DIR", str(Path(__file__).parent.parent / "data")))
 
 
 def _conn() -> sqlite3.Connection:

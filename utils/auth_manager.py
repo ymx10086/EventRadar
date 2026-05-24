@@ -30,12 +30,18 @@ class AuthManager:
         if self._initialized:
             return
 
-        # 设置.env文件路径（python-api目录下）
+        # 设置.env文件路径（默认项目根目录；桌面模式可重定向到用户目录）
         self.base_dir = Path(__file__).parent.parent
-        self.env_path = self.base_dir / ".env"
+        env_path = os.getenv("EVENTRADAR_ENV_PATH", "").strip()
+        self.env_path = Path(env_path).expanduser() if env_path else self.base_dir / ".env"
 
         # Docker环境下的凭证文件（存储在data目录，权限更可靠）
-        self.credentials_file = self.base_dir / "data" / ".credentials.json"
+        credentials_path = os.getenv("EVENTRADAR_CREDENTIALS_PATH", "").strip()
+        self.credentials_file = (
+            Path(credentials_path).expanduser()
+            if credentials_path
+            else self.base_dir / "data" / ".credentials.json"
+        )
 
         # [2026-05-15 OS-2 优化] 凭证缓存时间戳，30s 内不重复读文件
         # 高频 RSS 请求场景下，原代码每次 get_credentials/get_token/get_cookie 都重读 .env

@@ -14,7 +14,9 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
 from typing import Optional, Dict
 import httpx
+import os
 import time
+from pathlib import Path
 from utils.auth_manager import auth_manager
 from utils.webhook import webhook
 
@@ -218,14 +220,12 @@ async def get_qrcode(request: Request):
             print(f"[OK] 获取到二维码，类型: {media_type}")
         
         # 可选：保存二维码到本地（用于调试）
-        import os
-        qrcode_dir = "static/qrcodes"
-        if not os.path.exists(qrcode_dir):
-            os.makedirs(qrcode_dir)
+        qrcode_dir = Path(os.getenv("EVENTRADAR_QRCODE_DIR", "static/qrcodes")).expanduser()
+        qrcode_dir.mkdir(parents=True, exist_ok=True)
         
         # 根据格式确定文件扩展名
         ext = "png" if is_png else "jpg"
-        qrcode_path = f"{qrcode_dir}/login_qrcode.{ext}"
+        qrcode_path = qrcode_dir / f"login_qrcode.{ext}"
         
         with open(qrcode_path, "wb") as f:
             f.write(content)

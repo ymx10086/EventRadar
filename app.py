@@ -47,13 +47,13 @@ EventRadar 是一个面向多平台内容的活动情报与日历系统，当前
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期：启动和关闭"""
-    env_file = Path(__file__).parent / ".env"
+    env_file = Path(os.getenv("EVENTRADAR_ENV_PATH", str(Path(__file__).parent / ".env"))).expanduser()
     if not env_file.exists():
         print("\n" + "=" * 60)
         print("[WARNING] .env file not found")
         print("=" * 60)
         print("Please configure .env file or login via admin page")
-        print("Visit: http://localhost:5000/admin.html")
+        print(f"Expected env file: {env_file}")
         print("=" * 60 + "\n")
     else:
         print("\n" + "=" * 60)

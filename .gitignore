@@ -51,6 +51,13 @@ uploads/
 # Build and packaging artifacts
 build/
 dist/
+node_modules/
+*.app/
+*.dmg
+*.pkg
+src-tauri/target/
+src-tauri/bin/
+src-tauri/gen/
 *.egg-info/
 
 # OS and editor noise

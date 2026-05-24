@@ -471,6 +471,87 @@
             color: var(--text-secondary);
             line-height: 1.8;
         }
+
+        .config-section {
+            grid-column: 1 / -1;
+        }
+
+        .config-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: var(--space-md);
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .field label {
+            font-size: var(--font-xs);
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .field input,
+        .field select,
+        .field textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border-base);
+            border-radius: var(--radius-base);
+            font-size: var(--font-sm);
+            color: var(--text-primary);
+            background: var(--bg-primary);
+            outline: none;
+            transition: border-color var(--duration-fast) var(--ease-in-out), box-shadow var(--duration-fast) var(--ease-in-out);
+        }
+
+        .field textarea {
+            min-height: 76px;
+            resize: vertical;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+            font-size: var(--font-xs);
+        }
+
+        .field input:focus,
+        .field select:focus,
+        .field textarea:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.1);
+        }
+
+        .field.full {
+            grid-column: 1 / -1;
+        }
+
+        .field-help {
+            font-size: 11px;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        .config-actions {
+            margin-top: var(--space-md);
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            flex-wrap: wrap;
+        }
+
+        .config-status {
+            font-size: var(--font-xs);
+            color: var(--text-muted);
+        }
+
+        .config-status.ok { color: var(--success-color); }
+        .config-status.err { color: var(--error-color); }
+
+        @media (max-width: 768px) {
+            .config-grid { grid-template-columns: 1fr; }
+            .field.full { grid-column: auto; }
+        }
     </style>
 </head>
 <body>
@@ -545,8 +626,8 @@
                     </div>
                 </div>
                 <ul class="nav-list">
-                    <li><a href="/api/docs" target="_blank"><span>Swagger UI</span><span class="arrow">&#8250;</span></a></li>
-                    <li><a href="/api/redoc" target="_blank"><span>ReDoc</span><span class="arrow">&#8250;</span></a></li>
+                    <li><a href="/api/docs"><span>Swagger UI</span><span class="arrow">&#8250;</span></a></li>
+                    <li><a href="/api/redoc"><span>ReDoc</span><span class="arrow">&#8250;</span></a></li>
                 </ul>
             </div>
 
@@ -566,8 +647,8 @@
                     </div>
                 </div>
                 <ul class="nav-list">
-                    <li><a href="/api/health" target="_blank"><span>健康检查</span><span class="arrow">&#8250;</span></a></li>
-                    <li><a href="/api/stats" target="_blank"><span>限频统计</span><span class="arrow">&#8250;</span></a></li>
+                    <li><a href="/api/health"><span>健康检查</span><span class="arrow">&#8250;</span></a></li>
+                    <li><a href="/api/stats"><span>限频统计</span><span class="arrow">&#8250;</span></a></li>
                 </ul>
             </div>
 
@@ -591,6 +672,78 @@
                     <li><a href="/history.html"><span>历史文章</span><span class="arrow">&#8250;</span></a></li>
                     <li><a href="/events.html"><span>活动抽取</span><span class="arrow">&#8250;</span></a></li>
                 </ul>
+            </div>
+
+            <!-- Runtime Config -->
+            <div class="card config-section">
+                <div class="card-header">
+                    <div class="card-icon green">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 20h9"/>
+                            <path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="card-title">模型与运行配置</div>
+                        <div class="card-desc">MiniMax、Webhook 和代理池</div>
+                    </div>
+                </div>
+                <div class="config-grid">
+                    <div class="field full">
+                        <label>MiniMax API Key</label>
+                        <input type="password" id="cfgMinimaxKey" autocomplete="off" placeholder="未修改则留空">
+                        <div class="field-help" id="cfgMinimaxKeyHelp">正在读取配置...</div>
+                    </div>
+                    <div class="field">
+                        <label>API 风格</label>
+                        <select id="cfgMinimaxStyle">
+                            <option value="anthropic">anthropic</option>
+                            <option value="openai">openai</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>文本模型</label>
+                        <input type="text" id="cfgMinimaxModel" placeholder="MiniMax-M2.7">
+                    </div>
+                    <div class="field">
+                        <label>文本接口 Base URL</label>
+                        <input type="text" id="cfgMinimaxBaseUrl" placeholder="https://api.minimax.io/anthropic">
+                    </div>
+                    <div class="field">
+                        <label>图片理解 Host</label>
+                        <input type="text" id="cfgMinimaxApiHost" placeholder="https://api.minimaxi.com">
+                    </div>
+                    <div class="field">
+                        <label>请求超时（秒）</label>
+                        <input type="number" id="cfgMinimaxTimeout" min="1" max="600" step="1">
+                    </div>
+                    <div class="field">
+                        <label>启用图片理解</label>
+                        <select id="cfgMinimaxVisionEnabled">
+                            <option value="true">开启</option>
+                            <option value="false">关闭</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>图片理解模型</label>
+                        <input type="text" id="cfgMinimaxVisionModel" placeholder="MiniMax-M2.7">
+                    </div>
+                    <div class="field full">
+                        <label>Webhook URL</label>
+                        <input type="text" id="cfgWebhookUrl" placeholder="企业微信群机器人 Webhook，可留空">
+                    </div>
+                    <div class="field full">
+                        <label>代理池 PROXY_URLS</label>
+                        <textarea id="cfgProxyUrls" placeholder="socks5://user:pass@ip1:1080,socks5://user:pass@ip2:1080"></textarea>
+                        <div class="field-help">启用完整内容抓取时强烈建议配置 2-3 个代理，多个用英文逗号分隔。</div>
+                    </div>
+                </div>
+                <div class="tip" id="cfgEnvPath">配置文件路径：读取中...</div>
+                <div class="config-actions">
+                    <button class="btn btn-primary" id="saveConfigBtn" onclick="saveRuntimeConfig()">保存配置</button>
+                    <button class="btn-sm" onclick="loadRuntimeConfig()">重新读取</button>
+                    <span class="config-status" id="configStatus"></span>
+                </div>
             </div>
 
             <!-- Test -->
@@ -626,7 +779,7 @@
         <div class="footer">
             <span>EventRadar v1.0.0</span>
             <div class="footer-links">
-                <a href="/api/openapi.json" target="_blank">OpenAPI</a>
+                <a href="/api/openapi.json">OpenAPI</a>
             </div>
         </div>
     </div>
@@ -710,6 +863,75 @@
             }
         }
 
+        function setConfigStatus(message, type) {
+            var el = document.getElementById('configStatus');
+            el.textContent = message || '';
+            el.className = 'config-status' + (type ? ' ' + type : '');
+        }
+
+        async function loadRuntimeConfig() {
+            setConfigStatus('正在读取配置...');
+            try {
+                var res = await fetch('/api/admin/config');
+                var data = await res.json();
+                var values = data.values || {};
+                var secret = (data.secrets && data.secrets.MINIMAX_API_KEY) || {};
+
+                document.getElementById('cfgMinimaxKey').value = '';
+                document.getElementById('cfgMinimaxKey').placeholder = secret.configured ? '已配置，留空则不修改' : '请输入 MiniMax API Key';
+                document.getElementById('cfgMinimaxKeyHelp').textContent = secret.configured ? ('当前已配置：' + (secret.masked || '******')) : '当前未配置，LLM 活动抽取会使用规则兜底。';
+                document.getElementById('cfgMinimaxStyle').value = values.MINIMAX_API_STYLE || 'anthropic';
+                document.getElementById('cfgMinimaxModel').value = values.MINIMAX_MODEL || 'MiniMax-M2.7';
+                document.getElementById('cfgMinimaxBaseUrl').value = values.MINIMAX_BASE_URL || 'https://api.minimax.io/anthropic';
+                document.getElementById('cfgMinimaxApiHost').value = values.MINIMAX_API_HOST || 'https://api.minimaxi.com';
+                document.getElementById('cfgMinimaxTimeout').value = values.MINIMAX_TIMEOUT || '90';
+                document.getElementById('cfgMinimaxVisionEnabled').value = String(values.MINIMAX_VISION_ENABLED || 'true').toLowerCase() === 'true' ? 'true' : 'false';
+                document.getElementById('cfgMinimaxVisionModel').value = values.MINIMAX_VISION_MODEL || values.MINIMAX_MODEL || 'MiniMax-M2.7';
+                document.getElementById('cfgWebhookUrl').value = values.WEBHOOK_URL || '';
+                document.getElementById('cfgProxyUrls').value = values.PROXY_URLS || '';
+                document.getElementById('cfgEnvPath').textContent = '配置文件路径：' + (data.env_path || '.env') + (data.desktop ? '（桌面模式）' : '');
+                setConfigStatus('配置已读取', 'ok');
+            } catch (e) {
+                setConfigStatus('读取失败：' + e.message, 'err');
+            }
+        }
+
+        async function saveRuntimeConfig() {
+            var btn = document.getElementById('saveConfigBtn');
+            var key = document.getElementById('cfgMinimaxKey').value.trim();
+            var body = {
+                MINIMAX_API_STYLE: document.getElementById('cfgMinimaxStyle').value,
+                MINIMAX_MODEL: document.getElementById('cfgMinimaxModel').value.trim(),
+                MINIMAX_BASE_URL: document.getElementById('cfgMinimaxBaseUrl').value.trim(),
+                MINIMAX_API_HOST: document.getElementById('cfgMinimaxApiHost').value.trim(),
+                MINIMAX_TIMEOUT: Number(document.getElementById('cfgMinimaxTimeout').value || 90),
+                MINIMAX_VISION_ENABLED: document.getElementById('cfgMinimaxVisionEnabled').value === 'true',
+                MINIMAX_VISION_MODEL: document.getElementById('cfgMinimaxVisionModel').value.trim(),
+                WEBHOOK_URL: document.getElementById('cfgWebhookUrl').value.trim(),
+                PROXY_URLS: document.getElementById('cfgProxyUrls').value.trim()
+            };
+            if (key) body.MINIMAX_API_KEY = key;
+
+            btn.disabled = true;
+            btn.textContent = '保存中...';
+            setConfigStatus('正在保存...');
+            try {
+                var res = await fetch('/api/admin/config', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                var data = await res.json();
+                if (!res.ok || !data.success) throw new Error(data.detail || data.message || '保存失败');
+                setConfigStatus('配置已保存，当前后端已生效', 'ok');
+                await loadRuntimeConfig();
+            } catch (e) {
+                setConfigStatus('保存失败：' + e.message, 'err');
+            }
+            btn.disabled = false;
+            btn.textContent = '保存配置';
+        }
+
         async function testArticle() {
             var url = document.getElementById('testUrl').value.trim();
             var panel = document.getElementById('resultPanel');
@@ -786,7 +1008,10 @@
             if (e.key === 'Enter') testArticle();
         });
 
-        window.addEventListener('load', checkStatus);
+        window.addEventListener('load', function () {
+            checkStatus();
+            loadRuntimeConfig();
+        });
     </script>
 </body>
 </html>

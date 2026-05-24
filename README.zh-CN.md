@@ -307,6 +307,65 @@ docker-compose logs -f
 
 如果你只是使用原项目官方镜像，请注意官方镜像不一定包含 EventRadar 的最新活动抽取和日历功能；推荐使用本仓库构建镜像。
 
+## macOS 桌面应用打包
+
+EventRadar 可以封装为 macOS 桌面应用：Tauri 负责桌面窗口，PyInstaller 负责把 FastAPI 后端打包成 sidecar 二进制。
+
+### 从 GitHub Release 安装
+
+在仓库的 GitHub Releases 页面下载最新的 `EventRadar_*.dmg`，打开后把 `EventRadar.app` 拖到 `Applications` 即可安装。
+
+首次启动后，进入管理后台，在 **模型与运行配置** 中配置 MiniMax、Webhook 和代理池。桌面版运行数据不会写入项目目录，而是统一保存在：
+
+```text
+~/Library/Application Support/EventRadar/
+```
+
+这个目录会保存桌面版 `.env`、SQLite 数据库、日志、二维码、每日归档和活动导出文件。
+
+如果 macOS 提示应用来自未认证开发者，可以右键 `EventRadar.app`，选择 **打开** 并确认一次。后续如果要公开分发，可以再补代码签名和 notarization，让安装体验更顺滑。
+
+### 本地构建
+
+只构建后端 sidecar：
+
+```bash
+bash packaging/desktop/build_pyinstaller.sh
+```
+
+产物：
+
+```text
+src-tauri/bin/eventradar-server-<target-triple>
+```
+
+构建 `.app` 和 `.dmg` 安装包：
+
+```bash
+bash packaging/desktop/build_tauri.sh
+```
+
+产物：
+
+```text
+src-tauri/target/release/bundle/macos/EventRadar.app
+src-tauri/target/release/bundle/dmg/EventRadar_*.dmg
+```
+
+桌面应用启动后会拉起 `eventradar-server` sidecar，等待 `/api/health` 就绪，在原生窗口里打开 `/events.html`，并在 App 退出时关闭后端进程。运行数据统一存储在 `~/Library/Application Support/EventRadar/`。
+
+把下面这个文件上传到 GitHub Releases，就可以作为 macOS 一键安装包分发：
+
+```text
+src-tauri/target/release/bundle/dmg/EventRadar_1.0.0_aarch64.dmg
+```
+
+`.dmg`、`.app`、PyInstaller 产物、Rust target 目录和生成的 sidecar 二进制都已加入 `.gitignore`。它们应该作为 Release 附件上传，不要提交进仓库。
+
+如果要支持 Intel Mac，需要在 Intel macOS 机器上构建，或配置 `x86_64-apple-darwin` 目标；Tauri sidecar 文件名必须带对应 target triple，并放在 `src-tauri/bin/` 下。
+
+旧版轻量启动器脚本仍保留在 [packaging/macos](packaging/macos/) 中，适合本地实验。
+
 ## 常用 API
 
 | 分组 | 入口 |

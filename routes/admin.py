@@ -9,14 +9,86 @@
 """
 
 import time
+import os
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional, List
+from dotenv import dotenv_values, set_key
 from utils.auth_manager import auth_manager
 from utils import rss_store
 
 router = APIRouter()
+
+
+CONFIG_KEYS = [
+    "MINIMAX_API_KEY",
+    "MINIMAX_API_STYLE",
+    "MINIMAX_BASE_URL",
+    "MINIMAX_API_HOST",
+    "MINIMAX_MODEL",
+    "MINIMAX_TIMEOUT",
+    "MINIMAX_VISION_ENABLED",
+    "MINIMAX_VISION_MODEL",
+    "WEBHOOK_URL",
+    "PROXY_URLS",
+]
+
+CONFIG_DEFAULTS = {
+    "MINIMAX_API_STYLE": "anthropic",
+    "MINIMAX_BASE_URL": "https://api.minimax.io/anthropic",
+    "MINIMAX_API_HOST": "https://api.minimaxi.com",
+    "MINIMAX_MODEL": "MiniMax-M2.7",
+    "MINIMAX_TIMEOUT": "90",
+    "MINIMAX_VISION_ENABLED": "true",
+    "MINIMAX_VISION_MODEL": "MiniMax-M2.7",
+}
+
+
+def _env_path() -> Path:
+    env_path = os.getenv("EVENTRADAR_ENV_PATH", "").strip()
+    if env_path:
+        return Path(env_path).expanduser()
+    return Path(__file__).resolve().parent.parent / ".env"
+
+
+def _masked(value: str) -> str:
+    value = (value or "").strip()
+    if not value:
+        return ""
+    if len(value) <= 8:
+        return "*" * len(value)
+    return f"{value[:4]}...{value[-4:]}"
+
+
+def _config_value(key: str, file_values: dict) -> str:
+    value = file_values.get(key)
+    if value is None:
+        value = os.getenv(key)
+    if value is None:
+        value = CONFIG_DEFAULTS.get(key, "")
+    return str(value or "")
+
+
+class RuntimeConfigResponse(BaseModel):
+    env_path: str
+    desktop: bool
+    values: dict
+    secrets: dict
+
+
+class RuntimeConfigRequest(BaseModel):
+    MINIMAX_API_KEY: Optional[str] = None
+    MINIMAX_API_STYLE: Optional[str] = None
+    MINIMAX_BASE_URL: Optional[str] = None
+    MINIMAX_API_HOST: Optional[str] = None
+    MINIMAX_MODEL: Optional[str] = None
+    MINIMAX_TIMEOUT: Optional[int] = Field(None, ge=1, le=600)
+    MINIMAX_VISION_ENABLED: Optional[bool] = None
+    MINIMAX_VISION_MODEL: Optional[str] = None
+    WEBHOOK_URL: Optional[str] = None
+    PROXY_URLS: Optional[str] = None
 
 
 # ── 状态管理 ─────────────────────────────────────────────
@@ -47,6 +119,55 @@ async def logout():
         return {"success": True, "message": "已退出登录"}
     else:
         return {"success": False, "message": "退出登录失败"}
+
+
+@router.get("/config", response_model=RuntimeConfigResponse, summary="读取运行配置")
+async def get_config():
+    """读取可在后台维护的运行配置，敏感值只返回掩码。"""
+    env_path = _env_path()
+    file_values = dotenv_values(env_path) if env_path.exists() else {}
+    values = {key: _config_value(key, file_values) for key in CONFIG_KEYS if key != "MINIMAX_API_KEY"}
+    api_key = _config_value("MINIMAX_API_KEY", file_values)
+    return RuntimeConfigResponse(
+        env_path=str(env_path),
+        desktop=os.getenv("EVENTRADAR_DESKTOP", "").lower() == "true",
+        values=values,
+        secrets={
+            "MINIMAX_API_KEY": {
+                "configured": bool(api_key),
+                "masked": _masked(api_key),
+            }
+        },
+    )
+
+
+@router.put("/config", summary="保存运行配置")
+async def save_config(req: RuntimeConfigRequest):
+    """保存模型、Webhook、代理池等运行配置到 .env，并同步当前进程环境。"""
+    env_path = _env_path()
+    env_path.parent.mkdir(parents=True, exist_ok=True)
+    env_path.touch(exist_ok=True)
+
+    payload = req.model_dump(exclude_unset=True)
+    if "MINIMAX_API_KEY" in payload and payload["MINIMAX_API_KEY"] is not None:
+        payload["MINIMAX_API_KEY"] = str(payload["MINIMAX_API_KEY"]).strip()
+    if "MINIMAX_TIMEOUT" in payload and payload["MINIMAX_TIMEOUT"] is not None:
+        payload["MINIMAX_TIMEOUT"] = str(payload["MINIMAX_TIMEOUT"])
+    if "MINIMAX_VISION_ENABLED" in payload and payload["MINIMAX_VISION_ENABLED"] is not None:
+        payload["MINIMAX_VISION_ENABLED"] = "true" if payload["MINIMAX_VISION_ENABLED"] else "false"
+
+    for key, value in payload.items():
+        if key not in CONFIG_KEYS or value is None:
+            continue
+        value = str(value).strip()
+        set_key(str(env_path), key, value)
+        os.environ[key] = value
+
+    return {
+        "success": True,
+        "message": "配置已保存",
+        "env_path": str(env_path),
+    }
 
 
 # ── 黑名单管理 ─────────────────────────────────────────────

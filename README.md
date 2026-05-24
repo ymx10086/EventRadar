@@ -307,6 +307,65 @@ The default port is controlled by `PORT` in `.env`. After the first launch, visi
 
 If you use the original upstream image, note that it may not include EventRadar's latest event extraction and calendar features. Building from this repository is recommended.
 
+## macOS Desktop Packaging
+
+EventRadar can be packaged as a macOS desktop app with a Tauri shell and a PyInstaller-built FastAPI sidecar.
+
+### Install From GitHub Release
+
+Download the latest `EventRadar_*.dmg` from the repository's GitHub Releases page, open it, and drag `EventRadar.app` into `Applications`.
+
+On first launch, open the admin panel and configure MiniMax, Webhook, and proxy settings in **Model & Runtime Config**. The desktop app stores user data outside the project directory:
+
+```text
+~/Library/Application Support/EventRadar/
+```
+
+This directory contains the desktop `.env`, SQLite databases, logs, QR codes, archives, and event exports.
+
+If macOS warns that the app is from an unidentified developer, right-click `EventRadar.app`, choose **Open**, and confirm once. Code signing and notarization can be added later for a smoother public release.
+
+### Build Locally
+
+Build the backend sidecar only:
+
+```bash
+bash packaging/desktop/build_pyinstaller.sh
+```
+
+Output:
+
+```text
+src-tauri/bin/eventradar-server-<target-triple>
+```
+
+Build the `.app` and `.dmg` installer:
+
+```bash
+bash packaging/desktop/build_tauri.sh
+```
+
+Output:
+
+```text
+src-tauri/target/release/bundle/macos/EventRadar.app
+src-tauri/target/release/bundle/dmg/EventRadar_*.dmg
+```
+
+The desktop app starts `eventradar-server` as a sidecar, waits for `/api/health`, opens `/events.html` in a native window, and stops the backend process when the app exits. Runtime data is stored in `~/Library/Application Support/EventRadar/`.
+
+Upload this file to GitHub Releases for one-click macOS installation:
+
+```text
+src-tauri/target/release/bundle/dmg/EventRadar_1.0.0_aarch64.dmg
+```
+
+The `.dmg`, `.app`, PyInstaller output, Rust target directory, and generated sidecar binaries are intentionally ignored by Git. Keep them as Release assets instead of committing them to the repository.
+
+For Intel Macs, build on an Intel macOS machine or configure a matching `x86_64-apple-darwin` build. The generated sidecar must be named with the matching target triple under `src-tauri/bin/`.
+
+The older lightweight launcher scripts are still available in [packaging/macos](packaging/macos/) for local experiments.
+
 ## API Reference
 
 | Group | Entry points |

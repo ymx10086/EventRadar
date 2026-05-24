@@ -1,0 +1,15 @@
+{
+  "name": "eventradar-desktop",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "desktop:server": "bash packaging/desktop/build_pyinstaller.sh",
+    "desktop:build": "bash packaging/desktop/build_tauri.sh"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0"
+  }
+}

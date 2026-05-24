@@ -1,0 +1,18 @@
+[package]
+name = "eventradar"
+version = "1.0.0"
+description = "EventRadar desktop app"
+authors = ["EventRadar"]
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+serde_json = "1"
+open = "5"
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]

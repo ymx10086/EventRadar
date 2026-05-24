@@ -32,14 +32,45 @@ logger = logging.getLogger(__name__)
 DEFAULT_EVENTS_DIR = Path(__file__).parent.parent / "data" / "events"
 EVENTS_DIR = Path(os.getenv("EVENTS_OUTPUT_DIR", str(DEFAULT_EVENTS_DIR)))
 
-MINIMAX_BASE_URL = os.getenv("MINIMAX_BASE_URL", "").rstrip("/")
-MINIMAX_API_STYLE = os.getenv("MINIMAX_API_STYLE", "").strip().lower()
-MINIMAX_MODEL = os.getenv("MINIMAX_MODEL", "MiniMax-M2.7")
-MINIMAX_VISION_MODEL = os.getenv("MINIMAX_VISION_MODEL", MINIMAX_MODEL)
-MINIMAX_TIMEOUT = int(os.getenv("MINIMAX_TIMEOUT", "90"))
-MINIMAX_API_HOST = os.getenv("MINIMAX_API_HOST", "https://api.minimax.io").rstrip("/")
+ARCHIVE_ROOT = Path(os.getenv("EVENTRADAR_DATA_DIR", str(Path(__file__).parent.parent / "data")))
 
-ARCHIVE_ROOT = Path(__file__).parent.parent / "data"
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+
+
+def _minimax_base_url() -> str:
+    return os.getenv("MINIMAX_BASE_URL", "").rstrip("/")
+
+
+def _minimax_api_style() -> str:
+    return os.getenv("MINIMAX_API_STYLE", "").strip().lower()
+
+
+def _minimax_model() -> str:
+    return os.getenv("MINIMAX_MODEL", "MiniMax-M2.7")
+
+
+def _minimax_vision_model() -> str:
+    return os.getenv("MINIMAX_VISION_MODEL", _minimax_model())
+
+
+def _minimax_timeout() -> int:
+    return _env_int("MINIMAX_TIMEOUT", 90)
+
+
+def _minimax_api_host() -> str:
+    return os.getenv("MINIMAX_API_HOST", "https://api.minimax.io").rstrip("/")
 
 EVENT_KEYWORDS = [
     "活动", "讲座", "论坛", "沙龙", "报名", "招募", "预告", "课程", "培训",
@@ -77,9 +108,13 @@ URL_RE = re.compile(r"https?://[^\s<>\"]+")
 @dataclass
 class ExtractConfig:
     use_llm: bool = True
-    use_vision: bool = os.getenv("MINIMAX_VISION_ENABLED", "false").lower() == "true"
+    use_vision: Optional[bool] = None
     max_chars: int = 9000
     output_dir: Optional[Path] = None
+
+    def __post_init__(self):
+        if self.use_vision is None:
+            self.use_vision = _env_bool("MINIMAX_VISION_ENABLED", False)
 
 
 def _tz():
@@ -105,7 +140,8 @@ def output_dir_for(date_str: Optional[str] = None, output_dir: Optional[Path] = 
 
 
 def default_archive_path(date_str: Optional[str] = None) -> Path:
-    return Path(__file__).parent.parent / "data" / "daily_archives" / (date_str or _today_str()) / "articles.json"
+    archive_dir = Path(os.getenv("DAILY_ARCHIVE_DIR", str(ARCHIVE_ROOT / "daily_archives")))
+    return archive_dir / (date_str or _today_str()) / "articles.json"
 
 
 def load_archive(input_path: str) -> Dict:
@@ -252,7 +288,7 @@ def call_minimax_chat(messages: List[Dict], model: Optional[str] = None,
     if not api_key:
         raise RuntimeError("MINIMAX_API_KEY is not configured")
 
-    style = MINIMAX_API_STYLE or ("anthropic" if api_key.startswith("sk-cp-") else "openai")
+    style = _minimax_api_style() or ("anthropic" if api_key.startswith("sk-cp-") else "openai")
     if style == "anthropic":
         return _call_minimax_anthropic(messages, api_key, model, temperature, max_tokens)
     return _call_minimax_openai(messages, api_key, model, temperature, max_tokens)
@@ -260,9 +296,9 @@ def call_minimax_chat(messages: List[Dict], model: Optional[str] = None,
 
 def _call_minimax_openai(messages: List[Dict], api_key: str, model: Optional[str],
                          temperature: float, max_tokens: int) -> str:
-    base_url = (MINIMAX_BASE_URL or "https://api.minimax.io/v1").rstrip("/")
+    base_url = (_minimax_base_url() or "https://api.minimax.io/v1").rstrip("/")
     payload = {
-        "model": model or MINIMAX_MODEL,
+        "model": model or _minimax_model(),
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens,
@@ -271,7 +307,7 @@ def _call_minimax_openai(messages: List[Dict], api_key: str, model: Optional[str
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
-    with httpx.Client(timeout=float(MINIMAX_TIMEOUT)) as client:
+    with httpx.Client(timeout=float(_minimax_timeout())) as client:
         resp = client.post(f"{base_url}/chat/completions", json=payload, headers=headers)
         resp.raise_for_status()
         data = resp.json()
@@ -280,7 +316,7 @@ def _call_minimax_openai(messages: List[Dict], api_key: str, model: Optional[str
 
 def _call_minimax_anthropic(messages: List[Dict], api_key: str, model: Optional[str],
                             temperature: float, max_tokens: int) -> str:
-    base_url = (MINIMAX_BASE_URL or "https://api.minimax.io/anthropic").rstrip("/")
+    base_url = (_minimax_base_url() or "https://api.minimax.io/anthropic").rstrip("/")
     system_prompt = ""
     converted = []
     for message in messages:
@@ -328,7 +364,7 @@ def _call_minimax_anthropic(messages: List[Dict], api_key: str, model: Optional[
         })
 
     payload = {
-        "model": model or MINIMAX_MODEL,
+        "model": model or _minimax_model(),
         "messages": converted,
         "max_tokens": max_tokens,
         "temperature": max(0.01, temperature),
@@ -345,7 +381,7 @@ def _call_minimax_anthropic(messages: List[Dict], api_key: str, model: Optional[
         urls.append("https://api.minimaxi.com/anthropic/v1/messages")
 
     last_error = None
-    with httpx.Client(timeout=float(MINIMAX_TIMEOUT)) as client:
+    with httpx.Client(timeout=float(_minimax_timeout())) as client:
         for url in urls:
             try:
                 resp = client.post(url, json=payload, headers=headers)
@@ -406,13 +442,13 @@ def understand_image_with_minimax_token_plan(image_path: str, prompt: str) -> st
         "MM-API-Source": "eventradar",
         "Content-Type": "application/json",
     }
-    hosts = [MINIMAX_API_HOST]
+    hosts = [_minimax_api_host()]
     for fallback_host in ("https://api.minimaxi.com", "https://api.minimax.io"):
         if fallback_host not in hosts:
             hosts.append(fallback_host)
 
     errors = []
-    with httpx.Client(timeout=float(MINIMAX_TIMEOUT)) as client:
+    with httpx.Client(timeout=float(_minimax_timeout())) as client:
         for host in hosts:
             try:
                 resp = client.post(f"{host}/v1/coding_plan/vlm", json=payload, headers=headers)
@@ -458,7 +494,7 @@ def recognize_poster_with_minimax(image_path: str, article: Dict) -> str:
             ],
         }
     ]
-    return call_minimax_chat(messages, model=MINIMAX_VISION_MODEL, max_tokens=1500)
+    return call_minimax_chat(messages, model=_minimax_vision_model(), max_tokens=1500)
 
 
 def enrich_with_poster_vision(article: Dict, compressed: Dict, use_vision: bool) -> Dict:

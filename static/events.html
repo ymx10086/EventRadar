@@ -4,429 +4,197 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EventRadar｜活动日历</title>
-    <style>
-        :root {
-            --primary: #2563eb;
-            --primary-dark: #1d4ed8;
-            --green: #16a34a;
-            --amber: #d97706;
-            --red: #dc2626;
-            --ink: #111827;
-            --muted: #6b7280;
-            --soft: #f7f8fb;
-            --line: #e5e7eb;
-            --panel: #ffffff;
-            --shadow: 0 12px 36px rgba(15, 23, 42, .08);
-            --radius: 8px;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-            color: var(--ink);
-            background: var(--soft);
-            min-height: 100vh;
-        }
-        .app { max-width: 1440px; margin: 0 auto; padding: 28px 24px 48px; }
-        .topbar { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; margin-bottom: 18px; }
-        .brand { display: grid; gap: 8px; max-width: 680px; }
-        .brand-logo { width: min(340px, 72vw); height: auto; display: block; }
-        .eyebrow { color: var(--primary); font-size: 12px; font-weight: 800; margin-bottom: 4px; }
-        h1 { font-size: 28px; line-height: 1.2; }
-        .subtitle { color: var(--muted); font-size: 14px; margin-top: 6px; }
-        .toolbar { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
-        button, .btn {
-            border: 1px solid var(--line);
-            background: #fff;
-            color: var(--ink);
-            border-radius: var(--radius);
-            padding: 9px 13px;
-            font-size: 14px;
-            font-weight: 700;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-        }
-        button:hover, .btn:hover { border-color: var(--primary); color: var(--primary); }
-        .primary { background: var(--primary); border-color: var(--primary); color: #fff; }
-        .primary:hover { background: var(--primary-dark); color: #fff; }
-        button:disabled { opacity: .55; cursor: not-allowed; }
-        .shell { display: block; }
-        .panel {
-            background: var(--panel);
-            border: 1px solid var(--line);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
-        }
-        .side { padding: 12px; margin-bottom: 14px; position: sticky; top: 10px; z-index: 8; }
-        .side h2, .section-title { font-size: 15px; margin-bottom: 12px; }
-        .field { display: grid; gap: 6px; margin-bottom: 12px; }
-        .field-help { color: var(--muted); font-size: 12px; line-height: 1.45; }
-        label { color: var(--muted); font-size: 12px; font-weight: 700; }
-        input, select, textarea {
-            width: 100%;
-            border: 1px solid var(--line);
-            border-radius: var(--radius);
-            padding: 9px 10px;
-            font: inherit;
-            font-size: 14px;
-            background: #fff;
-            outline: none;
-        }
-        textarea { min-height: 90px; resize: vertical; }
-        input:focus, select:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.10); }
-        .segmented { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-        .segmented button { padding: 8px; font-weight: 800; }
-        .segmented button.active { background: #eff6ff; color: var(--primary); border-color: var(--primary); }
-        .filter-bar {
-            display: grid;
-            grid-template-columns: 210px 140px 140px 140px 140px minmax(220px, 1fr) 140px auto auto;
-            gap: 10px;
-            align-items: end;
-        }
-        .filter-bar .field { margin-bottom: 0; }
-        .filter-bar .segmented { min-width: 210px; }
-        .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
-        .stat { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
-        .stat .k { color: var(--muted); font-size: 12px; }
-        .stat .v { font-size: 22px; font-weight: 800; margin-top: 2px; }
-        .main { padding: 16px; }
-        .calendar-head {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 12px;
-        }
-        .calendar-title { font-size: 20px; font-weight: 800; }
-        .calendar-grid {
-            display: grid;
-            grid-template-columns: repeat(7, minmax(0, 1fr));
-            border: 1px solid var(--line);
-            border-radius: var(--radius);
-            overflow: hidden;
-            background: #fff;
-        }
-        .weekday, .day {
-            border-right: 1px solid var(--line);
-            border-bottom: 1px solid var(--line);
-            min-width: 0;
-        }
-        .weekday:nth-child(7n), .day:nth-child(7n) { border-right: 0; }
-        .weekday {
-            background: #f9fafb;
-            padding: 9px;
-            text-align: center;
-            color: var(--muted);
-            font-size: 12px;
-            font-weight: 800;
-        }
-        .day { min-height: 148px; padding: 8px; }
-        .day.out { background: #fafafa; }
-        .day.today { background: #eff6ff; box-shadow: inset 0 0 0 2px rgba(37, 99, 235, .35); }
-        .day-num { color: var(--muted); font-size: 12px; margin-bottom: 6px; display: flex; justify-content: space-between; gap: 6px; }
-        .day.today .day-num::after { content: "今天"; color: var(--primary); font-weight: 800; }
-        .week-grid { grid-template-columns: repeat(7, minmax(150px, 1fr)); overflow-x: auto; }
-        .list-view { display: grid; gap: 10px; }
-        .event-pill {
-            display: block;
-            width: 100%;
-            border: 0;
-            color: #fff;
-            border-radius: 6px;
-            padding: 5px 7px;
-            margin-bottom: 5px;
-            font-size: 12px;
-            line-height: 1.3;
-            text-align: left;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .event-pill strong { font-weight: 900; opacity: .92; }
-        .more-pill {
-            display: block;
-            color: var(--muted);
-            font-size: 12px;
-            padding: 2px 7px;
-        }
-        .day-more {
-            width: 100%;
-            justify-content: center;
-            margin-top: 4px;
-            padding: 4px 7px;
-            font-size: 12px;
-        }
-        .event-card {
-            border: 1px solid var(--line);
-            border-radius: var(--radius);
-            background: #fff;
-            padding: 12px;
-            display: grid;
-            gap: 8px;
-        }
-        .event-card-top { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
-        .event-title { font-weight: 800; font-size: 15px; }
-        .event-meta { display: flex; flex-wrap: wrap; gap: 6px 12px; color: var(--muted); font-size: 12px; }
-        .reason { color: #374151; font-size: 13px; background: #f9fafb; border-radius: 6px; padding: 8px; }
-        .tags { display: flex; flex-wrap: wrap; gap: 6px; }
-        .tag, .badge {
-            display: inline-flex;
-            align-items: center;
-            border-radius: 999px;
-            padding: 3px 8px;
-            font-size: 12px;
-            background: #f3f4f6;
-            color: #374151;
-            font-weight: 700;
-        }
-        .level {
-            color: #fff;
-            min-width: 34px;
-            justify-content: center;
-        }
-        .level-S, .p-S { background: #b91c1c; }
-        .level-A, .p-A { background: #c2410c; }
-        .level-B, .p-B { background: #2563eb; }
-        .level-C, .p-C { background: #4b5563; }
-        .status-pending { background: #fff7ed; color: #9a3412; }
-        .status-confirmed { background: #ecfdf5; color: #166534; }
-        .status-ignored { background: #fef2f2; color: #991b1b; }
-        .card-actions { display: flex; gap: 6px; flex-wrap: wrap; }
-        .mini { padding: 5px 8px; font-size: 12px; border-radius: 6px; }
-        .danger { border-color: #fecaca; color: var(--red); }
-        .danger:hover { border-color: var(--red); color: #b91c1c; }
-        .empty {
-            border: 1px dashed #cbd5e1;
-            border-radius: var(--radius);
-            padding: 28px;
-            text-align: center;
-            color: var(--muted);
-            background: #fff;
-        }
-        .empty strong { display: block; color: var(--ink); margin-bottom: 6px; }
-        .modal-backdrop {
-            position: fixed;
-            inset: 0;
-            background: rgba(15, 23, 42, .42);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 18px;
-            z-index: 20;
-        }
-        .modal-backdrop.open { display: flex; }
-        .modal {
-            width: min(760px, 100%);
-            max-height: min(86vh, 860px);
-            overflow: auto;
-            background: #fff;
-            border-radius: 10px;
-            box-shadow: 0 24px 70px rgba(15, 23, 42, .25);
-        }
-        .modal.small { width: min(520px, 100%); }
-        .modal.large { width: min(920px, 100%); }
-        .modal-head {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 16px 18px;
-            border-bottom: 1px solid var(--line);
-        }
-        .modal-head h2 { font-size: 18px; }
-        .modal-body { padding: 18px; }
-        .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-        .row-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
-        .status-line { margin-top: 10px; color: var(--muted); font-size: 13px; }
-        .status-line.ok { color: var(--green); }
-        .status-line.err { color: var(--red); }
-        .progress-wrap {
-            display: none;
-            margin-top: 14px;
-            border: 1px solid var(--line);
-            border-radius: var(--radius);
-            padding: 12px;
-            background: #f9fafb;
-        }
-        .progress-wrap.open { display: block; }
-        .progress-bar {
-            height: 8px;
-            border-radius: 999px;
-            background: #e5e7eb;
-            overflow: hidden;
-            margin-bottom: 10px;
-        }
-        .progress-fill {
-            height: 100%;
-            width: 0%;
-            background: var(--primary);
-            transition: width .25s ease;
-        }
-        .progress-message { font-size: 13px; font-weight: 800; margin-bottom: 8px; }
-        .progress-log {
-            display: grid;
-            gap: 5px;
-            max-height: 180px;
-            overflow: auto;
-            color: var(--muted);
-            font-size: 12px;
-        }
-        .progress-log div {
-            border-left: 3px solid #dbeafe;
-            padding-left: 8px;
-        }
-        .source-row, .log-row {
-            display: grid;
-            grid-template-columns: 1fr auto;
-            gap: 10px;
-            align-items: center;
-            border: 1px solid var(--line);
-            border-radius: var(--radius);
-            padding: 10px;
-            margin-bottom: 8px;
-        }
-        .source-row p, .log-row p { color: var(--muted); font-size: 12px; margin-top: 3px; }
-        @media (max-width: 900px) {
-            .topbar { flex-direction: column; }
-            .toolbar { justify-content: flex-start; }
-            .side { position: static; }
-            .filter-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-            .filter-bar .segmented { min-width: 0; }
-            .stats { grid-template-columns: repeat(2, 1fr); }
-            .grid2 { grid-template-columns: 1fr; }
-        }
-        @media (max-width: 620px) {
-            .filter-bar { grid-template-columns: 1fr; }
-        }
-    </style>
-    <link rel="stylesheet" href="/static/css/design-system.css">
+    <link rel="stylesheet" href="/static/css/events-app.css?v=20260525-prod1">
 </head>
 <body>
     <div class="app-shell events-workbench">
-        <header class="topbar">
-            <div class="brand">
+        <aside class="product-nav" aria-label="EventRadar navigation">
+            <div class="nav-brand">
                 <img class="brand-logo" src="/imgs/EventRadar.png" alt="EventRadar">
-                <h1>多平台活动雷达</h1>
-                <p class="subtitle">把公众号、链接、文本和图片里的活动统一整理到一个可筛选、可确认、可导出的个人日历。</p>
-            </div>
-            <div class="toolbar topbar-actions">
-                <button class="primary" onclick="openModal('addModal')">添加活动</button>
-                <button onclick="openModal('extractModal')">公众号提取</button>
-                <button onclick="openModal('sourcesModal'); loadSources()">信息源管理</button>
-                <button onclick="openModal('profileModal'); loadProfile()">个人信息</button>
-                <button onclick="openModal('settingsModal'); loadSettings(); loadRuns()">设置</button>
-                <a class="btn" href="/admin.html">管理后台</a>
-                <a class="btn" href="/api/events/calendar.ics" target="_blank">导出日历</a>
-            </div>
-        </header>
-
-        <div class="stats dashboard-grid" id="stats"></div>
-
-        <div class="shell page-container workbench-layout">
-            <details class="card sidebar filters-drawer" id="filtersDrawer">
-                <summary class="sidebar-summary">
-                    <span>筛选与视图</span>
-                    <span class="badge">Filters</span>
-                </summary>
-                <div class="filter-bar">
-                    <div class="field">
-                        <label>视图</label>
-                        <div class="segmented">
-                            <button id="view-month" onclick="setView('month')">月</button>
-                            <button id="view-week" onclick="setView('week')">周</button>
-                            <button id="view-list" onclick="setView('list')">列表</button>
-                        </div>
-                    </div>
-                    <div class="field">
-                        <label>月份</label>
-                        <input id="monthInput" type="month" onchange="handleMonthChange()">
-                    </div>
-                    <div class="field">
-                        <label>等级</label>
-                        <select id="levelFilter" onchange="loadEvents()">
-                            <option value="">全部等级</option>
-                            <option value="S">S 强相关</option>
-                            <option value="A">A 值得关注</option>
-                            <option value="B">B 一般相关</option>
-                            <option value="C">C 低相关</option>
-                        </select>
-                    </div>
-                    <div class="field">
-                        <label>标签</label>
-                        <select id="tagFilter" onchange="loadEvents()">
-                            <option value="">全部标签</option>
-                        </select>
-                    </div>
-                    <div class="field">
-                        <label>状态</label>
-                        <select id="statusFilter" onchange="loadEvents()">
-                            <option value="">全部有效</option>
-                            <option value="pending">待确认</option>
-                            <option value="confirmed">已确认</option>
-                            <option value="ignored">已忽略</option>
-                        </select>
-                        <div class="field-help">默认显示待确认和已确认；忽略会隐藏。</div>
-                    </div>
-                    <div class="field">
-                        <label>关键词</label>
-                        <input id="keywordInput" type="text" placeholder="标题 / 地点 / 来源" onkeydown="if(event.key==='Enter') loadEvents()">
-                    </div>
-                    <div class="field">
-                        <label>收藏</label>
-                        <select id="favoriteFilter" onchange="loadEvents()">
-                            <option value="">全部</option>
-                            <option value="favorite">仅收藏</option>
-                            <option value="unfavorite">仅未收藏</option>
-                        </select>
-                    </div>
-                    <button class="primary" onclick="loadEvents()">刷新</button>
-                    <button onclick="clearFilters()">清空</button>
+                <div>
+                    <strong>EventRadar</strong>
+                    <span>AI 活动日历助手</span>
                 </div>
-            </details>
+            </div>
+            <nav class="nav-list">
+                <button class="nav-item active" data-page="app" data-section="calendar-month" onclick="showPage('app', 'page-calendar'); setView('month')">日历</button>
+                <button class="nav-item" data-page="app" data-section="activity-cards" onclick="showPage('app', 'page-calendar'); setView('cards')">活动列表</button>
+                <button class="nav-item" data-page="app" onclick="showPage('app', 'page-calendar'); openModal('extractModal')">公众号/RSS</button>
+                <a class="nav-item" href="/history.html">历史记录</a>
+                <button class="nav-item" data-page="app" onclick="showPage('app', 'page-calendar'); openModal('settingsModal'); loadSettings(); loadRuns()">设置</button>
+                <a class="nav-item" href="/admin.html">管理后台</a>
+            </nav>
+            <div class="nav-actions">
+                <a class="btn nav-admin" href="/admin.html">管理后台</a>
+                <a class="btn nav-export" href="/api/events/calendar.ics" target="_blank" rel="noopener">导出日历</a>
+            </div>
+        </aside>
 
-            <main class="card page-main calendar-workspace main">
+        <main class="product-main" id="homeSection">
+            <section class="product-page app-view active" id="page-app">
+            <div class="workbench-header" id="activitySection">
+                <div>
+                    <span class="eyebrow">EventRadar Calendar</span>
+                    <h1>活动日历</h1>
+                    <p class="workbench-subtitle">像处理邮件一样处理活动：浏览日历、确认候选、收藏重点、导出到个人日历。</p>
+                </div>
+                <div class="workbench-actions">
+                    <button class="primary" onclick="openModal('addModal')">添加活动</button>
+                    <button onclick="openModal('extractModal')">导入</button>
+                    <a class="btn" href="/api/events/calendar.ics" target="_blank" rel="noopener">导出日历</a>
+                </div>
+            </div>
+
+            <section class="stats metric-strip" id="stats"></section>
+            <section class="card calendar-workspace main" id="page-calendar">
                 <div class="calendar-head">
                     <div>
-                        <div class="section-title">活动</div>
+                        <span class="eyebrow">Calendar</span>
                         <div class="calendar-title" id="rangeTitle">-</div>
+                        <p class="mode-description" id="modeDescription">按月份查看活动分布。</p>
                     </div>
-                    <div class="row-actions calendar-nav" style="margin-top:0;">
-                        <button onclick="moveRange(-1)">上一个</button>
+                    <div class="row-actions calendar-nav">
+                        <div class="segmented compact-view-switch">
+                        <button id="viewTop-month" onclick="setView('month')">月</button>
+                        <button id="viewTop-week" onclick="setView('week')">周</button>
+                        <button id="viewTop-list" onclick="setView('list')">列表</button>
+                        <button id="viewTop-cards" onclick="setView('cards')">卡片</button>
+                        </div>
+                        <button class="icon-button" aria-label="上一个时间段" onclick="moveRange(-1)">‹</button>
                         <button onclick="jumpToday()">今天</button>
-                        <button onclick="moveRange(1)">下一个</button>
+                        <button class="icon-button" aria-label="下一个时间段" onclick="moveRange(1)">›</button>
                     </div>
                 </div>
+                <details class="filters-drawer calendar-filters" id="filtersDrawer">
+                    <summary class="sidebar-summary">
+                        <span>筛选与视图</span>
+                        <span class="badge">Filters</span>
+                    </summary>
+                    <div class="filter-bar">
+                        <div class="field">
+                            <label>视图</label>
+                            <div class="segmented">
+                                <button id="view-month" onclick="setView('month')">月</button>
+                                <button id="view-week" onclick="setView('week')">周</button>
+                                <button id="view-list" onclick="setView('list')">列表</button>
+                                <button id="view-cards" onclick="setView('cards')">卡片</button>
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label>月份</label>
+                            <input id="monthInput" type="month" onchange="handleMonthChange()">
+                        </div>
+                        <div class="field">
+                            <label>等级</label>
+                            <select id="levelFilter" onchange="loadEvents()">
+                                <option value="">全部等级</option>
+                                <option value="S">S 强相关</option>
+                                <option value="A">A 值得关注</option>
+                                <option value="B">B 一般相关</option>
+                                <option value="C">C 低相关</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label>标签</label>
+                            <select id="tagFilter" onchange="loadEvents()">
+                                <option value="">全部标签</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label>状态</label>
+                            <select id="statusFilter" onchange="loadEvents()">
+                                <option value="">全部有效</option>
+                                <option value="pending">待确认</option>
+                                <option value="confirmed">已确认</option>
+                                <option value="ignored">已忽略</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label>关键词</label>
+                            <input id="keywordInput" type="text" placeholder="标题 / 地点 / 来源" onkeydown="if(event.key==='Enter') loadEvents()">
+                        </div>
+                        <div class="field">
+                            <label>收藏</label>
+                            <select id="favoriteFilter" onchange="loadEvents()">
+                                <option value="">全部</option>
+                                <option value="favorite">仅收藏</option>
+                                <option value="unfavorite">仅未收藏</option>
+                            </select>
+                        </div>
+                        <button class="primary" onclick="loadEvents()">刷新</button>
+                        <button onclick="clearFilters()">清空</button>
+                    </div>
+                </details>
                 <div class="status-line" id="calendarStatus"></div>
                 <div class="calendar-root" id="calendarRoot"></div>
-            </main>
-        </div>
+            </section>
+            </section>
+        </main>
+
+        <aside class="right-rail">
+            <section class="card rail-card up-next-card">
+                <span class="eyebrow">Up Next</span>
+                <h2>接下来</h2>
+                <div id="upNextEvents" class="up-next-list"></div>
+            </section>
+            <section class="card rail-card">
+                <span class="eyebrow">Overview</span>
+                <h2>今日概览</h2>
+                <div id="todaySummary" class="summary-stack"></div>
+                <div class="row-actions rail-actions">
+                    <button class="primary" onclick="openModal('addModal')">添加</button>
+                    <a class="btn" href="/api/events/calendar.ics" target="_blank" rel="noopener">导出</a>
+                </div>
+            </section>
+            <section class="card rail-card">
+                <span class="eyebrow">Import</span>
+                <h2>导入活动</h2>
+                <button onclick="openModal('extractModal')">公众号文章</button>
+                <button onclick="openModal('addModal')">链接 / 文本 / 图片</button>
+                <button onclick="openModal('sourcesModal'); loadSources()">管理来源</button>
+            </section>
+        </aside>
     </div>
 
     <div class="modal-backdrop" id="addModal">
         <div class="modal">
             <div class="modal-head"><h2>添加活动</h2><button class="mini" onclick="closeModal('addModal')">关闭</button></div>
             <div class="modal-body">
-                <div class="grid2">
-                    <div class="field"><label>添加方式</label><select id="manualMode"><option value="manual">手动填写</option><option value="text">粘贴文本</option><option value="link">输入链接</option><option value="image">上传图片</option></select></div>
-                    <div class="field"><label>链接</label><input id="manualLink" type="text" placeholder="https://..."></div>
-                </div>
-                <div class="field"><label>粘贴文本</label><textarea id="manualText" placeholder="粘贴活动通知、海报 OCR 或报名说明"></textarea></div>
-                <div class="field"><label>图片文件</label><input id="manualImage" type="file" accept="image/*"></div>
-                <div class="grid2">
+                <section class="form-section">
+                    <h3>快速导入</h3>
+                    <div class="grid2">
+                        <div class="field"><label>添加方式</label><select id="manualMode"><option value="manual">手动填写</option><option value="text">粘贴文本</option><option value="link">输入链接</option><option value="image">上传图片</option></select></div>
+                        <div class="field"><label>链接</label><input id="manualLink" type="text" placeholder="https://..."></div>
+                    </div>
+                    <div class="field"><label>粘贴文本</label><textarea id="manualText" placeholder="粘贴活动通知、海报 OCR 或报名说明"></textarea></div>
+                    <div class="field"><label>图片文件</label><input id="manualImage" type="file" accept="image/*"></div>
+                </section>
+                <section class="form-section">
+                    <h3>基础信息</h3>
+                    <div class="grid2">
                     <div class="field"><label>标题</label><input id="manualTitle" type="text"></div>
                     <div class="field"><label>标签</label><input id="manualTags" type="text" placeholder="AI，创业，讲座"></div>
+                    </div>
+                    <div class="field"><label>描述</label><textarea id="manualDesc"></textarea></div>
+                </section>
+                <section class="form-section">
+                    <h3>时间地点</h3>
+                    <div class="grid2">
                     <div class="field"><label>开始时间</label><input id="manualStart" type="text" placeholder="2026-05-22 19:00"></div>
                     <div class="field"><label>结束时间</label><input id="manualEnd" type="text"></div>
                     <div class="field"><label>地点</label><input id="manualLocation" type="text"></div>
                     <div class="field"><label>城市</label><input id="manualCity" type="text"></div>
+                    </div>
+                </section>
+                <details class="form-section advanced-fields">
+                    <summary>来源与 AI 推荐信息</summary>
+                    <div class="grid2">
                     <div class="field"><label>主办方</label><input id="manualOrganizer" type="text"></div>
                     <div class="field"><label>报名截止</label><input id="manualDeadline" type="text"></div>
                     <div class="field"><label>报名链接</label><input id="manualRegLink" type="text"></div>
                     <div class="field"><label>等级</label><select id="manualLevel"><option value="">自动分级</option><option value="S">S 强相关</option><option value="A">A 值得关注</option><option value="B">B 一般相关</option><option value="C">C 低相关</option></select></div>
-                </div>
-                <div class="field"><label>描述</label><textarea id="manualDesc"></textarea></div>
+                    </div>
+                </details>
                 <div class="row-actions"><button class="primary" onclick="saveManualEvent()">保存到我的日历</button></div>
                 <div class="status-line" id="manualStatus"></div>
             </div>
@@ -435,17 +203,20 @@
 
     <div class="modal-backdrop" id="extractModal">
         <div class="modal small">
-            <div class="modal-head"><h2>公众号提取</h2><button class="mini" onclick="closeModal('extractModal')">关闭</button></div>
+            <div class="modal-head"><h2>导入公众号</h2><button class="mini" onclick="closeModal('extractModal')">关闭</button></div>
             <div class="modal-body">
                 <div class="field"><label>公众号</label><input id="extractAccount" type="text" placeholder="公众号名称 / alias / fakeid"></div>
                 <div class="grid2">
                     <div class="field"><label>开始日期</label><input id="extractStart" type="date"></div>
                     <div class="field"><label>结束日期</label><input id="extractEnd" type="date"></div>
                 </div>
-                <div class="grid2">
-                    <div class="field"><label>模型抽取</label><select id="extractLlm"><option value="true">开启</option><option value="false">关闭</option></select></div>
-                    <div class="field"><label>海报识别</label><select id="extractVision"><option value="false">关闭</option><option value="true">开启</option></select></div>
-                </div>
+                <details class="form-section advanced-fields">
+                    <summary>AI 导入选项</summary>
+                    <div class="grid2">
+                        <div class="field"><label>模型抽取</label><select id="extractLlm"><option value="true">开启</option><option value="false">关闭</option></select></div>
+                        <div class="field"><label>海报识别</label><select id="extractVision"><option value="false">关闭</option><option value="true">开启</option></select></div>
+                    </div>
+                </details>
                 <div class="row-actions"><button class="primary" id="extractBtn" onclick="runAccountRange()">批量提取活动</button></div>
                 <div class="status-line" id="extractStatus"></div>
                 <div class="progress-wrap" id="extractProgress">
@@ -496,6 +267,8 @@
         <div class="modal">
             <div class="modal-head"><h2>设置</h2><button class="mini" onclick="closeModal('settingsModal')">关闭</button></div>
             <div class="modal-body">
+                <section class="form-section">
+                    <h3>日历助手</h3>
                 <div class="grid2">
                     <div class="field"><label>每日自动抓取</label><select id="settingEnabled"><option value="false">关闭</option><option value="true">开启</option></select></div>
                     <div class="field"><label>抓取时间</label><input id="settingTime" type="time"></div>
@@ -506,18 +279,24 @@
                     <div class="field"><label>海报识别</label><select id="settingVision"><option value="false">关闭</option><option value="true">开启</option></select></div>
                     <div class="field"><label>压缩长度</label><input id="settingMaxChars" type="number" min="1000" max="30000" step="500"></div>
                 </div>
-                <h3 class="section-title" style="margin-top:18px;">防风控策略</h3>
-                <div class="grid2">
-                    <div class="field"><label>正文抓取并发</label><input id="settingFetchConcurrency" type="number" min="1" max="5" step="1"><p>建议 1；代理池稳定时可调到 2。</p></div>
-                    <div class="field"><label>单篇最小间隔（秒）</label><input id="settingFetchDelayMin" type="number" min="0" max="300" step="1"></div>
-                    <div class="field"><label>单篇最大间隔（秒）</label><input id="settingFetchDelayMax" type="number" min="0" max="300" step="1"></div>
-                    <div class="field"><label>公众号间隔（秒）</label><input id="settingAccountDelay" type="number" min="0" max="600" step="1"></div>
-                    <div class="field"><label>每号最多抓正文</label><input id="settingMaxArticlesPerAccount" type="number" min="1" max="100" step="1"></div>
-                    <div class="field"><label>验证后冷却（分钟）</label><input id="settingVerificationPause" type="number" min="0" max="720" step="5"></div>
-                    <div class="field"><label>连续验证阈值</label><input id="settingVerificationThreshold" type="number" min="1" max="20" step="1"></div>
-                    <div class="field"><label>必须使用代理池</label><select id="settingProxyRequired"><option value="false">否</option><option value="true">是</option></select><p>开启后未配置 PROXY_URLS 会停止抓正文。</p></div>
-                </div>
-                <div class="status-line" id="fetchSafetyStatus"></div>
+                </section>
+                <details class="form-section advanced-fields">
+                    <summary>高级抓取与防风控</summary>
+                    <div class="grid2">
+                        <div class="field"><label>正文抓取并发</label><input id="settingFetchConcurrency" type="number" min="1" max="5" step="1"><p>建议 1；代理池稳定时可调到 2。</p></div>
+                        <div class="field"><label>单篇最小间隔（秒）</label><input id="settingFetchDelayMin" type="number" min="0" max="300" step="1"></div>
+                        <div class="field"><label>单篇最大间隔（秒）</label><input id="settingFetchDelayMax" type="number" min="0" max="300" step="1"></div>
+                        <div class="field"><label>公众号间隔（秒）</label><input id="settingAccountDelay" type="number" min="0" max="600" step="1"></div>
+                        <div class="field"><label>每号最多抓正文</label><input id="settingMaxArticlesPerAccount" type="number" min="1" max="100" step="1"></div>
+                        <div class="field"><label>验证后冷却（分钟）</label><input id="settingVerificationPause" type="number" min="0" max="720" step="5"></div>
+                        <div class="field"><label>连续验证阈值</label><input id="settingVerificationThreshold" type="number" min="1" max="20" step="1"></div>
+                        <div class="field"><label>必须使用代理池</label><select id="settingProxyRequired"><option value="false">否</option><option value="true">是</option></select><p>开启后未配置 PROXY_URLS 会停止抓正文。</p></div>
+                    </div>
+                    <div class="status-line" id="fetchSafetyStatus"></div>
+                    <h3>抓取日志</h3>
+                    <div id="runLog"></div>
+                    <a class="btn mini" href="/admin.html">打开管理后台</a>
+                </details>
                 <div class="row-actions">
                     <button class="primary" onclick="saveSettings()">保存设置</button>
                     <button onclick="runAutomationNow()">立即抓取所有关注源</button>
@@ -530,8 +309,6 @@
                     <div class="progress-message" id="automationProgressMessage">等待开始</div>
                     <div class="progress-log" id="automationProgressLog"></div>
                 </div>
-                <h3 class="section-title" style="margin-top:18px;">抓取日志</h3>
-                <div id="runLog"></div>
             </div>
         </div>
     </div>
@@ -545,13 +322,18 @@
         </div>
     </div>
 
-    <div class="modal-backdrop" id="editModal">
-        <div class="modal">
-            <div class="modal-head"><h2>编辑活动</h2><button class="mini" onclick="closeModal('editModal')">关闭</button></div>
+    <div class="modal-backdrop drawer-backdrop" id="editModal">
+        <div class="modal drawer-panel">
+            <div class="modal-head"><div><span class="eyebrow">Event Detail</span><h2>活动详情</h2></div><button class="mini" onclick="closeModal('editModal')">关闭</button></div>
             <div class="modal-body">
                 <input id="editId" type="hidden">
+                <section class="drawer-section drawer-hero">
+                    <label>活动标题</label>
+                    <input id="editTitle" type="text">
+                    <div class="drawer-summary" id="editSummary"></div>
+                </section>
+                <div class="drawer-group-title">基础信息</div>
                 <div class="grid2">
-                    <div class="field"><label>标题</label><input id="editTitle" type="text"></div>
                     <div class="field"><label>标签</label><input id="editTags" type="text"></div>
                     <div class="field"><label>开始时间</label><input id="editStart" type="text"></div>
                     <div class="field"><label>结束时间</label><input id="editEnd" type="text"></div>
@@ -562,12 +344,14 @@
                     <div class="field"><label>报名截止</label><input id="editDeadline" type="text"></div>
                     <div class="field"><label>报名链接</label><input id="editRegLink" type="text"></div>
                 </div>
+                <div class="drawer-group-title">AI 推荐信息</div>
                 <div class="field"><label>推荐理由</label><textarea id="editReason"></textarea></div>
                 <div class="field"><label>描述</label><textarea id="editDesc"></textarea></div>
                 <div class="field" id="editSourceRow" style="display:none;">
                     <label>原文链接</label>
                     <a class="btn" id="editSourceLink" href="#" target="_blank" rel="noopener">打开公众号原文</a>
                 </div>
+                <div class="status-line" id="editDuplicateInfo"></div>
                 <div class="row-actions"><button class="primary" onclick="saveEdit()">保存修改</button><button class="danger" onclick="deleteCurrentEvent()">彻底删除</button></div>
                 <div class="status-line" id="editStatusLine"></div>
             </div>
@@ -597,6 +381,64 @@
         function lines(value) {
             return String(value || '').split(/[\n,，]/).map(s => s.trim()).filter(Boolean);
         }
+        function normalizeDedupeText(value) {
+            return String(value || '').toLowerCase().replace(/\s+/g, ' ').trim();
+        }
+        function eventDedupeKey(event) {
+            if (event.id) return 'id:' + String(event.id);
+            return [
+                normalizeDedupeText(event.title),
+                normalizeDedupeText(event.start_time || event.calendar_time || event.registration_deadline),
+                normalizeDedupeText(event.location),
+                normalizeDedupeText(event.source_name || event.account || event.source_url || event.source_article_url)
+            ].join('|');
+        }
+        function dedupeEvents(events) {
+            const map = new Map();
+            for (const event of events || []) {
+                const key = eventDedupeKey(event);
+                if (!key || key === '|||') continue;
+                const existing = map.get(key);
+                if (!existing) {
+                    map.set(key, { ...event, _ui_key: key, duplicate_count: Number(event.duplicate_count || 1), duplicate_sources: [] });
+                    continue;
+                }
+                existing.duplicate_count = Math.max(Number(existing.duplicate_count || 1) + 1, 2);
+                const source = event.source_name || event.account || event.source_url || event.source_article_url || '';
+                if (source && !existing.duplicate_sources.includes(source)) existing.duplicate_sources.push(source);
+                existing.is_favorite = existing.is_favorite || event.is_favorite;
+                existing.favorite = existing.favorite || event.favorite;
+                existing.status = existing.status === 'confirmed' ? existing.status : (event.status || existing.status);
+                existing.reason = existing.reason || event.reason;
+                existing.description = existing.description || event.description;
+            }
+            return Array.from(map.values());
+        }
+        function scrollToSection(id) {
+            const el = document.getElementById(id);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        function showPage(page, sectionId) {
+            document.querySelectorAll('.app-view, .product-page').forEach(el => el.classList.toggle('active', el.id === 'page-app'));
+            document.querySelectorAll('.nav-item').forEach(el => {
+                const isActive = el.dataset.page === 'app' && (!sectionId || el.dataset.section === sectionId);
+                el.classList.toggle('active', isActive);
+            });
+            if (window.innerWidth <= 520 && !['list', 'cards'].includes(currentView)) setView('list');
+            else loadEvents({ keepStatus: true });
+            syncPrimaryNav(currentView);
+            if (sectionId) {
+                setTimeout(() => scrollToSection(sectionId), 40);
+            } else {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+        function syncPrimaryNav(view) {
+            const activeSection = view === 'month' || view === 'week' ? 'calendar-month' : 'activity-cards';
+            document.querySelectorAll('.nav-item').forEach(el => {
+                if (el.dataset.section) el.classList.toggle('active', el.dataset.section === activeSection);
+            });
+        }
         function normalizeDateInput(value) {
             const text = String(value || '').trim();
             if (!text) return todayChina();
@@ -605,8 +447,23 @@
             if (!match) return '';
             return match[1] + '-' + String(match[2]).padStart(2, '0') + '-' + String(match[3]).padStart(2, '0');
         }
-        function openModal(id) { document.getElementById(id).classList.add('open'); }
-        function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+        function openModal(id) {
+            const modal = document.getElementById(id);
+            if (!modal) return;
+            modal.classList.add('is-open');
+            document.body.classList.add('modal-open');
+        }
+        function closeModal(id) {
+            const modal = document.getElementById(id);
+            if (!modal) return;
+            modal.classList.remove('is-open');
+            if (!document.querySelector('.modal-backdrop.is-open')) document.body.classList.remove('modal-open');
+        }
+        document.addEventListener('keydown', event => {
+            if (event.key !== 'Escape') return;
+            const open = Array.from(document.querySelectorAll('.modal-backdrop.is-open')).pop();
+            if (open) closeModal(open.id);
+        });
         function setLine(id, text, type) {
             const el = document.getElementById(id);
             el.className = 'status-line ' + (type || '');
@@ -660,13 +517,26 @@
             return { start: localDateKey(start), end: localDateKey(end), label: localDateKey(start) + ' 至 ' + localDateKey(end), startDate: start };
         }
         function activeRange() { return currentView === 'week' ? weekRange() : monthRange(); }
+        function viewDescription(view) {
+            return {
+                month: '按月份查看活动分布，适合快速扫一眼本月节奏。',
+                week: '聚焦本周活动，用来安排近期要确认和参加的事项。',
+                list: '按列表查看所有活动，适合搜索、筛选和批量处理。',
+                cards: '以卡片浏览活动推荐，点击卡片查看完整详情。'
+            }[view] || '浏览你的活动日历。';
+        }
         function setView(view) {
             currentView = view;
             if (view === 'week' && !currentWeekStart) {
                 const selectedMonth = document.getElementById('monthInput').value || todayChina().slice(0, 7);
                 currentWeekStart = selectedMonth === todayChina().slice(0, 7) ? todayChina() : selectedMonth + '-01';
             }
-            ['month', 'week', 'list'].forEach(v => document.getElementById('view-' + v).classList.toggle('active', v === view));
+            ['month', 'week', 'list', 'cards'].forEach(v => {
+                document.getElementById('view-' + v)?.classList.toggle('active', v === view);
+                document.getElementById('viewTop-' + v)?.classList.toggle('active', v === view);
+            });
+            document.getElementById('modeDescription').textContent = viewDescription(view);
+            syncPrimaryNav(view);
             loadEvents();
         }
         function handleMonthChange() {
@@ -727,22 +597,60 @@
             const res = await fetch('/api/events/list?' + params.toString());
             const data = await res.json();
             if (!res.ok || !data.success) throw new Error(data.detail || '活动读取失败');
-            currentEvents = data.data.events || [];
+            currentEvents = dedupeEvents(data.data.events || []);
             if (favorite === 'favorite') currentEvents = currentEvents.filter(e => e.is_favorite || e.favorite);
             if (favorite === 'unfavorite') currentEvents = currentEvents.filter(e => !(e.is_favorite || e.favorite));
             renderStats(data.data || {});
             renderTagOptions(data.data.tags || []);
             document.getElementById('rangeTitle').textContent = range.label;
-            if (currentView === 'list') renderList(currentEvents);
+            if (currentView === 'list' || currentView === 'cards') renderList(currentEvents);
             else renderCalendar(currentEvents, range);
         }
         function renderStats(data) {
             const levels = data.priority_counts || {};
+            const pending = currentEvents.filter(e => (e.status || 'pending') === 'pending').length;
+            const recommended = currentEvents.filter(e => ['S', 'A'].includes(e.level || e.priority || 'B')).length;
+            const todayCount = currentEvents.filter(e => eventDateKey(e) === todayChina()).length;
             document.getElementById('stats').innerHTML =
-                '<div class="stat"><div class="k">活动总数</div><div class="v">' + esc(data.event_count || 0) + '</div></div>' +
-                '<div class="stat"><div class="k">S 强相关</div><div class="v">' + esc(levels.S || 0) + '</div></div>' +
-                '<div class="stat"><div class="k">A 值得关注</div><div class="v">' + esc(levels.A || 0) + '</div></div>' +
-                '<div class="stat"><div class="k">收藏数</div><div class="v">' + esc(data.favorite_count || 0) + '</div></div>';
+                '<button class="stat stat-today" onclick="jumpToday(); setView(&quot;cards&quot;)"><div class="stat-top"><div class="k">今日活动</div><span></span></div><div class="v">' + esc(todayCount) + '</div><p>按时间线整理</p></button>' +
+                '<button class="stat stat-pending" onclick="document.getElementById(&quot;statusFilter&quot;).value=&quot;pending&quot;; setView(&quot;cards&quot;)"><div class="stat-top"><div class="k">待确认</div><span></span></div><div class="v">' + esc(pending) + '</div><p>等待你处理</p></button>' +
+                '<button class="stat stat-recommend" onclick="document.getElementById(&quot;levelFilter&quot;).value=&quot;A&quot;; setView(&quot;cards&quot;)"><div class="stat-top"><div class="k">推荐活动</div><span></span></div><div class="v">' + esc(recommended || (levels.S || 0) + (levels.A || 0)) + '</div><p>S/A 优先级</p></button>' +
+                '<button class="stat stat-favorite" onclick="document.getElementById(&quot;favoriteFilter&quot;).value=&quot;favorite&quot;; setView(&quot;cards&quot;)"><div class="stat-top"><div class="k">已收藏</div><span></span></div><div class="v">' + esc(data.favorite_count || 0) + '</div><p>长期保留</p></button>';
+            renderSideRail(data);
+        }
+        function levelRank(e) {
+            return ({ S: 0, A: 1, B: 2, C: 3 })[e.level || e.priority || 'B'] ?? 2;
+        }
+        function eventSortKey(e) {
+            return String(e.calendar_time || e.start_time || e.registration_deadline || '');
+        }
+        function timeText(e) {
+            const raw = String(e.calendar_time || e.start_time || e.registration_deadline || '');
+            const m = raw.match(/(\d{1,2}[:：]\d{2}|\d{1,2}点(?:\d{1,2}分)?)/);
+            return m ? m[0].replace('：', ':') : '待定';
+        }
+        function upNextItem(e) {
+            return '<button class="up-next-item" onclick="openEdit(&quot;' + esc(eventActionKey(e)) + '&quot;)"><span>' + esc(timeText(e)) + '</span><strong>' + esc(e.title) + '</strong></button>';
+        }
+        function renderSideRail(data) {
+            const today = todayChina();
+            const todayItems = currentEvents
+                .filter(e => eventDateKey(e) === today)
+                .sort((a, b) => eventSortKey(a).localeCompare(eventSortKey(b)));
+            const recommended = currentEvents
+                .filter(e => ['S', 'A'].includes(e.level || e.priority || 'B'))
+                .sort((a, b) => levelRank(a) - levelRank(b) || eventSortKey(a).localeCompare(eventSortKey(b)))
+                .slice(0, 6);
+            const upNext = currentEvents
+                .filter(e => eventDateKey(e) >= today)
+                .sort((a, b) => eventSortKey(a).localeCompare(eventSortKey(b)))
+                .slice(0, 4);
+            document.getElementById('upNextEvents').innerHTML = upNext.map(upNextItem).join('') || '<div class="empty compact-empty"><strong>暂无即将开始的活动</strong></div>';
+            document.getElementById('todaySummary').innerHTML =
+                '<div class="summary-item"><span>今日</span><strong>' + esc(todayItems.length) + '</strong></div>' +
+                '<div class="summary-item"><span>待确认</span><strong>' + esc(currentEvents.filter(e => (e.status || 'pending') === 'pending').length) + '</strong></div>' +
+                '<div class="summary-item"><span>S/A 推荐</span><strong>' + esc(recommended.length) + '</strong></div>' +
+                '<div class="summary-item"><span>收藏</span><strong>' + esc(data.favorite_count || 0) + '</strong></div>';
         }
         function renderTagOptions(tags) {
             const select = document.getElementById('tagFilter');
@@ -821,26 +729,30 @@
                 root.innerHTML = '<div class="empty"><strong>暂无活动</strong><p>换一个筛选条件，或添加新的活动。</p></div>';
                 return;
             }
-            root.innerHTML = '<div class="list-view">' + events.map(eventCard).join('') + '</div>';
+            root.innerHTML = '<div class="' + (currentView === 'cards' ? 'cards-view' : 'list-view') + '">' + events.map(eventCard).join('') + '</div>';
+        }
+        function eventActionKey(e) {
+            return e.id || e._ui_key || eventDedupeKey(e);
         }
         function eventCard(e) {
-            const tags = (e.tags || []).map(t => '<span class="tag">' + esc(t) + '</span>').join('');
+            const tags = (e.tags || []).slice(0, 3).map(t => '<span class="tag">' + esc(t) + '</span>').join('');
             const calendarTime = e.calendar_time || e.start_time || '时间待定';
             const calendarLabel = e.calendar_time_label || (e.calendar_time ? '日历时间' : '活动时间');
             const fav = !!(e.is_favorite || e.favorite);
             const status = e.status || 'pending';
-            const confirmAction = status === 'confirmed'
-                ? '<button class="mini" disabled>已确认</button>'
-                : '<button class="mini" onclick="quickUpdate(&quot;' + esc(e.id) + '&quot;, {status:&quot;confirmed&quot;})">确认</button>';
-            const ignoreAction = status === 'ignored'
-                ? '<button class="mini" onclick="quickUpdate(&quot;' + esc(e.id) + '&quot;, {status:&quot;pending&quot;})">恢复待确认</button>'
-                : '<button class="mini" onclick="quickUpdate(&quot;' + esc(e.id) + '&quot;, {status:&quot;ignored&quot;})">忽略</button>';
-            return '<article class="event-card">' +
-                '<div class="event-card-top"><div><div class="event-title">' + (fav ? '★ ' : '') + esc(e.title) + '</div></div><span class="badge level level-' + esc(e.level || e.priority || 'B') + '">' + esc(e.level || e.priority || 'B') + '</span></div>' +
-                '<div class="event-meta"><span>' + esc(calendarLabel + '：' + calendarTime) + '</span><span>' + esc(e.location || '地点待定') + '</span><span>' + esc(e.source_name || e.account || '未知来源') + '</span><span class="badge status-' + esc(status) + '">' + esc(statusText(status)) + '</span></div>' +
+            const duplicate = Number(e.duplicate_count || 1) > 1 ? '<span class="badge duplicate-badge">+' + esc(Number(e.duplicate_count || 1) - 1) + ' 来源</span>' : '';
+            const favoriteText = fav ? '已收藏' : '收藏';
+            const key = eventActionKey(e);
+            const favoriteAction = e.id
+                ? '<button class="mini" onclick="event.stopPropagation(); toggleFavorite(&quot;' + esc(e.id) + '&quot;, ' + (!fav) + ')">' + favoriteText + '</button>'
+                : '<button class="mini" disabled>未同步</button>';
+            return '<article class="event-card" onclick="openEdit(&quot;' + esc(key) + '&quot;)">' +
+                '<div class="event-card-top"><div><span class="badge level level-' + esc(e.level || e.priority || 'B') + '">' + esc(e.level || e.priority || 'B') + '</span>' + duplicate + '</div><span class="badge status-' + esc(status) + '">' + esc(statusText(status)) + '</span></div>' +
+                '<h3 class="event-title">' + (fav ? '★ ' : '') + esc(e.title) + '</h3>' +
+                '<div class="event-meta"><span>' + esc(calendarLabel + '：' + calendarTime) + '</span><span>' + esc(e.location || '地点待定') + '</span><span>' + esc(e.source_name || e.account || '未知来源') + '</span></div>' +
                 '<div class="tags">' + tags + '</div>' +
                 '<div class="reason">' + esc(e.reason || '暂无推荐理由') + '</div>' +
-                '<div class="card-actions"><button class="mini" onclick="toggleFavorite(&quot;' + esc(e.id) + '&quot;, ' + (!fav) + ')">' + (fav ? '取消收藏' : '收藏') + '</button><button class="mini" onclick="openEdit(&quot;' + esc(e.id) + '&quot;)">编辑</button>' + confirmAction + ignoreAction + '<button class="mini danger" onclick="deleteEvent(&quot;' + esc(e.id) + '&quot;, &quot;' + esc(e.title) + '&quot;)">删除</button>' + (e.source_url ? '<a class="btn mini" href="' + esc(e.source_url) + '" target="_blank">来源</a>' : '') + '</div>' +
+                '<div class="card-actions"><button class="mini primary-soft" onclick="event.stopPropagation(); openEdit(&quot;' + esc(key) + '&quot;)">查看详情</button>' + favoriteAction + '<a class="btn mini" onclick="event.stopPropagation()" href="/api/events/calendar.ics" target="_blank" rel="noopener">加入日历</a></div>' +
                 '</article>';
         }
         async function toggleFavorite(id, favorite) {
@@ -848,9 +760,9 @@
             loadEvents();
         }
         function openEdit(id) {
-            const e = currentEvents.find(item => item.id === id);
+            const e = currentEvents.find(item => item.id === id || item._ui_key === id);
             if (!e) return;
-            document.getElementById('editId').value = e.id;
+            document.getElementById('editId').value = e.id || '';
             document.getElementById('editTitle').value = e.title || '';
             document.getElementById('editTags').value = (e.tags || []).join('，');
             document.getElementById('editStart').value = e.start_time || '';
@@ -863,6 +775,14 @@
             document.getElementById('editRegLink').value = e.registration_link || e.signup_url || '';
             document.getElementById('editReason').value = e.reason || '';
             document.getElementById('editDesc').value = e.description || '';
+            const summary = [
+                e.calendar_time || e.start_time || '时间待定',
+                e.location || '地点待定',
+                e.source_name || e.account || '未知来源',
+                levelText(e.level || e.priority || 'B'),
+                statusText(e.status || 'pending')
+            ];
+            document.getElementById('editSummary').innerHTML = summary.map(item => '<span>' + esc(item) + '</span>').join('');
             const sourceUrl = e.source_url || e.source_article_url || '';
             const sourceRow = document.getElementById('editSourceRow');
             const sourceLink = document.getElementById('editSourceLink');
@@ -874,6 +794,10 @@
                 sourceRow.style.display = 'none';
                 sourceLink.href = '#';
             }
+            const duplicateInfo = document.getElementById('editDuplicateInfo');
+            const duplicateCount = Number(e.duplicate_count || 1);
+            duplicateInfo.textContent = duplicateCount > 1 ? '已合并 ' + duplicateCount + ' 个重复来源' : '';
+            duplicateInfo.className = 'status-line ' + (duplicateCount > 1 ? 'ok' : '');
             setLine('editStatusLine', '');
             openModal('editModal');
         }
@@ -1230,7 +1154,7 @@
         function syncFilterDrawer() {
             const drawer = document.getElementById('filtersDrawer');
             if (!drawer) return;
-            drawer.open = window.innerWidth >= 768;
+            drawer.open = false;
         }
         window.addEventListener('resize', syncFilterDrawer);
         syncFilterDrawer();

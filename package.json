@@ -10,6 +10,7 @@
     "desktop:build": "bash packaging/desktop/build_tauri.sh"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@tauri-apps/cli": "^2.0.0"
   }
 }

@@ -301,16 +301,17 @@
             .filter-bar { grid-template-columns: 1fr; }
         }
     </style>
+    <link rel="stylesheet" href="/static/css/design-system.css">
 </head>
 <body>
-    <div class="app">
+    <div class="app-shell events-workbench">
         <header class="topbar">
             <div class="brand">
                 <img class="brand-logo" src="/imgs/EventRadar.png" alt="EventRadar">
                 <h1>多平台活动雷达</h1>
                 <p class="subtitle">把公众号、链接、文本和图片里的活动统一整理到一个可筛选、可确认、可导出的个人日历。</p>
             </div>
-            <div class="toolbar">
+            <div class="toolbar topbar-actions">
                 <button class="primary" onclick="openModal('addModal')">添加活动</button>
                 <button onclick="openModal('extractModal')">公众号提取</button>
                 <button onclick="openModal('sourcesModal'); loadSources()">信息源管理</button>
@@ -321,10 +322,14 @@
             </div>
         </header>
 
-        <div class="stats" id="stats"></div>
+        <div class="stats dashboard-grid" id="stats"></div>
 
-        <div class="shell">
-            <aside class="panel side">
+        <div class="shell page-container workbench-layout">
+            <details class="card sidebar filters-drawer" id="filtersDrawer">
+                <summary class="sidebar-summary">
+                    <span>筛选与视图</span>
+                    <span class="badge">Filters</span>
+                </summary>
                 <div class="filter-bar">
                     <div class="field">
                         <label>视图</label>
@@ -379,22 +384,22 @@
                     <button class="primary" onclick="loadEvents()">刷新</button>
                     <button onclick="clearFilters()">清空</button>
                 </div>
-            </aside>
+            </details>
 
-            <main class="panel main">
+            <main class="card page-main calendar-workspace main">
                 <div class="calendar-head">
                     <div>
                         <div class="section-title">活动</div>
                         <div class="calendar-title" id="rangeTitle">-</div>
                     </div>
-                    <div class="row-actions" style="margin-top:0;">
+                    <div class="row-actions calendar-nav" style="margin-top:0;">
                         <button onclick="moveRange(-1)">上一个</button>
                         <button onclick="jumpToday()">今天</button>
                         <button onclick="moveRange(1)">下一个</button>
                     </div>
                 </div>
                 <div class="status-line" id="calendarStatus"></div>
-                <div id="calendarRoot"></div>
+                <div class="calendar-root" id="calendarRoot"></div>
             </main>
         </div>
     </div>
@@ -1222,6 +1227,13 @@
             const runs = (data.data && data.data.runs) || [];
             document.getElementById('runLog').innerHTML = runs.map(r => '<div class="log-row"><div><strong>' + esc(r.status) + '</strong><p>' + esc(r.started_at ? new Date(r.started_at * 1000).toLocaleString() : '-') + ' · ' + esc(r.duration_seconds || 0) + 's · ' + esc(r.error || '') + '</p></div></div>').join('') || '<div class="empty"><strong>暂无抓取日志</strong></div>';
         }
+        function syncFilterDrawer() {
+            const drawer = document.getElementById('filtersDrawer');
+            if (!drawer) return;
+            drawer.open = window.innerWidth >= 768;
+        }
+        window.addEventListener('resize', syncFilterDrawer);
+        syncFilterDrawer();
         document.getElementById('monthInput').value = todayChina().slice(0, 7);
         document.getElementById('extractStart').value = todayChina();
         document.getElementById('extractEnd').value = todayChina();

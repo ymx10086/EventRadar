@@ -191,6 +191,31 @@ class EventStoreTest(unittest.TestCase):
             finally:
                 event_store.DB_PATH = original_db
 
+    def test_save_and_update_events_clean_location_details(self):
+        original_db = event_store.DB_PATH
+        with tempfile.TemporaryDirectory() as tmp:
+            event_store.DB_PATH = Path(tmp) / "events.db"
+            try:
+                event_store.init_db()
+                event_store.save_events([{
+                    "id": "dirty-location",
+                    "title": "AI 创业论坛",
+                    "start_time": "2026年5月20日",
+                    "location": "北京大学二教 509 主办方：创新创业学院 费用：免费 报名方式：扫码报名",
+                }])
+
+                saved = event_store.get_event("dirty-location")
+                self.assertEqual(saved["location"], "北京大学二教 509")
+
+                updated = event_store.update_event(
+                    "dirty-location",
+                    {"location": "中关村路演厅 报名方式：公众号后台回复 活动时间：2026年5月20日"},
+                )
+
+                self.assertEqual(updated["location"], "中关村路演厅")
+            finally:
+                event_store.DB_PATH = original_db
+
     def test_list_events_filters_by_calendar_time(self):
         original_db = event_store.DB_PATH
         with tempfile.TemporaryDirectory() as tmp:

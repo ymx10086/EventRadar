@@ -317,6 +317,50 @@ class EventExtractorTest(unittest.TestCase):
         self.assertEqual(event["signup_url"], "https://example.com/register")
         self.assertIn("融资路演", event["description"])
 
+    def test_location_cleanup_removes_other_labeled_fields(self):
+        import utils.event_extractor as extractor
+
+        location = extractor.clean_location_value(
+            "北京大学二教 509 主办方：创新创业学院 费用：免费 报名方式：扫码报名"
+        )
+
+        self.assertEqual(location, "北京大学二教 509")
+
+    def test_location_cleanup_rejects_non_location_details(self):
+        import utils.event_extractor as extractor
+
+        location = extractor.clean_location_value("主办方：创新创业学院 费用：免费 报名方式：扫码报名")
+
+        self.assertEqual(location, "")
+
+    def test_fallback_location_stops_before_organizer_fee_and_signup(self):
+        import utils.event_extractor as extractor
+
+        events = extractor.fallback_extract({
+            "title": "AI 创业论坛报名开启",
+            "text": (
+                "活动时间：2026年6月8日 14:00 "
+                "活动地点：北京大学二教 509 主办方：创新创业学院 费用：免费 报名方式：扫码报名"
+            ),
+        })
+
+        self.assertEqual(events[0]["location"], "北京大学二教 509")
+
+    def test_normalize_event_sanitizes_llm_location(self):
+        import utils.event_extractor as extractor
+
+        event = extractor.normalize_event(
+            {
+                "title": "AI 创业论坛",
+                "start_time": "2026年6月8日 14:00",
+                "location": "北京大学二教 509 主办方：创新创业学院 费用：免费 报名方式：扫码报名",
+            },
+            {"link": "https://mp.weixin.qq.com/s/test"},
+            "llm",
+        )
+
+        self.assertEqual(event["location"], "北京大学二教 509")
+
 
 if __name__ == "__main__":
     unittest.main()

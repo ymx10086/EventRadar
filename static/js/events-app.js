@@ -1,115 +1,3 @@
-let currentView = 'month';
-let currentEvents = [];
-let currentWeekStart = '';
-let selectedEventIds = new Set();
-
-function todayChina() {
-    const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
-    const map = {};
-    parts.forEach(p => map[p.type] = p.value);
-    return map.year + '-' + map.month + '-' + map.day;
-}
-function localDateKey(date) {
-    return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
-}
-function localMonthKey(date) {
-    return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0');
-}
-function esc(value) {
-    return String(value || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-function lines(value) {
-    return String(value || '').split(/[\n,，]/).map(s => s.trim()).filter(Boolean);
-}
-function normalizeDedupeText(value) {
-    return String(value || '').toLowerCase().replace(/\s+/g, ' ').trim();
-}
-function eventDedupeKey(event) {
-    if (event.id) return 'id:' + String(event.id);
-    return [
-        normalizeDedupeText(event.title),
-        normalizeDedupeText(event.start_time || event.calendar_time || event.registration_deadline),
-        normalizeDedupeText(event.location),
-        normalizeDedupeText(event.source_name || event.account || event.source_url || event.source_article_url)
-    ].join('|');
-}
-function dedupeEvents(events) {
-    const map = new Map();
-    for (const event of events || []) {
-        const key = eventDedupeKey(event);
-        if (!key || key === '|||') continue;
-        const existing = map.get(key);
-        if (!existing) {
-            map.set(key, {
-                ...event,
-                _ui_key: key,
-                duplicate_count: Number(event.duplicate_count || 1),
-                duplicate_ids: event.id ? [event.id] : [],
-                duplicate_sources: []
-            });
-            continue;
-        }
-        existing.duplicate_count = Math.max(Number(existing.duplicate_count || 1) + 1, 2);
-        if (event.id && !existing.duplicate_ids.includes(event.id)) existing.duplicate_ids.push(event.id);
-        const source = event.source_name || event.account || event.source_url || event.source_article_url || '';
-        if (source && !existing.duplicate_sources.includes(source)) existing.duplicate_sources.push(source);
-        existing.is_favorite = existing.is_favorite || event.is_favorite;
-        existing.favorite = existing.favorite || event.favorite;
-        existing.status = existing.status === 'confirmed' ? existing.status : (event.status || existing.status);
-        existing.reason = existing.reason || event.reason;
-        existing.description = existing.description || event.description;
-    }
-    return Array.from(map.values());
-}
-function eventDeleteIds(eventOrId) {
-    if (!eventOrId) return [];
-    const event = typeof eventOrId === 'string'
-        ? currentEvents.find(item => item.id === eventOrId || item._ui_key === eventOrId)
-        : eventOrId;
-    if (!event) return typeof eventOrId === 'string' ? [eventOrId] : [];
-    const ids = event.duplicate_ids && event.duplicate_ids.length ? event.duplicate_ids : [event.id];
-    return [...new Set(ids.filter(Boolean))];
-}
-function removeDeletedEvents(ids) {
-    const deleted = new Set(ids || []);
-    if (!deleted.size) return;
-    currentEvents = currentEvents
-        .map(event => {
-            const remainingIds = (event.duplicate_ids || [event.id]).filter(id => id && !deleted.has(id));
-            if (remainingIds.length !== (event.duplicate_ids || [event.id]).filter(Boolean).length) {
-                return { ...event, id: remainingIds[0] || event.id, duplicate_ids: remainingIds, duplicate_count: Math.max(remainingIds.length, 1) };
-            }
-            return event;
-        })
-        .filter(event => {
-            const ids = event.duplicate_ids && event.duplicate_ids.length ? event.duplicate_ids : [event.id];
-            return ids.some(id => id && !deleted.has(id));
-        });
-    deleted.forEach(id => selectedEventIds.delete(id));
-    const range = activeRange();
-    renderStats({ favorite_count: currentEvents.filter(e => e.is_favorite || e.favorite).length });
-    if (currentView === 'list' || currentView === 'cards') renderList(currentEvents);
-    else renderCalendar(currentEvents, range);
-}
-async function requestDeleteEvents(ids) {
-    const cleanIds = [...new Set((ids || []).filter(Boolean))];
-    if (!cleanIds.length) throw new Error('这个活动缺少数据库 ID，无法彻底删除。请刷新列表后再试。');
-    const res = cleanIds.length === 1
-        ? await fetch('/api/events/' + encodeURIComponent(cleanIds[0]) + '?delete_files=true', { method: 'DELETE' })
-        : await fetch('/api/events/bulk-delete', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ids: cleanIds, delete_files: true })
-        });
-    let data = {};
-    try {
-        data = await res.json();
-    } catch (err) {
-        data = {};
-    }
-    if (!res.ok || !data.success) throw new Error(data.detail || '删除失败');
-    return data.data || {};
-}
 function scrollToSection(id) {
     const el = document.getElementById(id);
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -158,17 +46,15 @@ function syncPrimaryNav(view) {
         if (el.dataset.section) el.classList.toggle('active', el.dataset.section === activeSection);
     });
 }
-function normalizeDateInput(value) {
-    const text = String(value || '').trim();
-    if (!text) return todayChina();
-    let match = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
-    if (!match) match = text.match(/^(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})(?:日)?$/);
-    if (!match) return '';
-    return match[1] + '-' + String(match[2]).padStart(2, '0') + '-' + String(match[3]).padStart(2, '0');
-}
 function openModal(id) {
-    const modal = document.getElementById(id);
+    const modal = window.EventRadarModals?.ensureModal(id) || document.getElementById(id);
     if (!modal) return;
+    if (id === 'extractModal') {
+        const start = document.getElementById('extractStart');
+        const end = document.getElementById('extractEnd');
+        if (start && !start.value) start.value = todayChina();
+        if (end && !end.value) end.value = todayChina();
+    }
     modal.classList.add('is-open');
     document.body.classList.add('modal-open');
 }
@@ -326,187 +212,6 @@ async function loadEvents(options) {
     if (currentView === 'list' || currentView === 'cards') renderList(currentEvents);
     else renderCalendar(currentEvents, range);
 }
-function renderStats(data) {
-    const levels = data.priority_counts || {};
-    const pending = currentEvents.filter(e => (e.status || 'pending') === 'pending').length;
-    const recommended = currentEvents.filter(e => ['S', 'A'].includes(e.level || e.priority || 'B')).length;
-    const todayCount = currentEvents.filter(e => eventDateKey(e) === todayChina()).length;
-    document.getElementById('stats').innerHTML =
-        '<div class="stat stat-today"><div class="stat-top"><div class="k">今日活动</div><span></span></div><div class="v">' + esc(todayCount) + '</div><p>按时间线整理</p></div>' +
-        '<div class="stat stat-pending"><div class="stat-top"><div class="k">待确认</div><span></span></div><div class="v">' + esc(pending) + '</div><p>等待你处理</p></div>' +
-        '<div class="stat stat-recommend"><div class="stat-top"><div class="k">推荐活动</div><span></span></div><div class="v">' + esc(recommended || (levels.S || 0) + (levels.A || 0)) + '</div><p>S/A 优先级</p></div>' +
-        '<div class="stat stat-favorite"><div class="stat-top"><div class="k">已收藏</div><span></span></div><div class="v">' + esc(data.favorite_count || 0) + '</div><p>长期保留</p></div>';
-    renderSideRail(data);
-}
-function levelRank(e) {
-    return ({ S: 0, A: 1, B: 2, C: 3 })[e.level || e.priority || 'B'] ?? 2;
-}
-function eventSortKey(e) {
-    return String(e.calendar_time || e.start_time || e.registration_deadline || '');
-}
-function timeText(e) {
-    const raw = String(e.calendar_time || e.start_time || e.registration_deadline || '');
-    const m = raw.match(/(\d{1,2}[:：]\d{2}|\d{1,2}点(?:\d{1,2}分)?)/);
-    return m ? m[0].replace('：', ':') : '待定';
-}
-function upNextItem(e) {
-    return '<button class="up-next-item" data-action="open-edit" data-event-key="' + esc(eventActionKey(e)) + '"><span>' + esc(timeText(e)) + '</span><strong>' + esc(e.title) + '</strong></button>';
-}
-function renderSideRail(data) {
-    const today = todayChina();
-    const upNext = currentEvents
-        .filter(e => eventDateKey(e) >= today)
-        .sort((a, b) => eventSortKey(a).localeCompare(eventSortKey(b)))
-        .slice(0, 4);
-    document.getElementById('upNextEvents').innerHTML = upNext.map(upNextItem).join('') || '<div class="empty compact-empty"><strong>暂无即将开始的活动</strong></div>';
-}
-function renderTagOptions(tags) {
-    const select = document.getElementById('tagFilter');
-    const current = select.value;
-    select.innerHTML = '<option value="">全部标签</option>' + tags.map(t => '<option value="' + esc(t) + '">' + esc(t) + '</option>').join('');
-    select.value = current;
-}
-function compactTimeLabel(event) {
-    const label = event.calendar_time_label || '';
-    if (label.includes('报名开始')) return '报名';
-    if (label.includes('报名截止')) return '截止';
-    if (label.includes('活动开始')) return '开始';
-    return label.slice(0, 2);
-}
-function openDayDetails(dateKey) {
-    const items = currentEvents.filter(e => eventDateKey(e) === dateKey).sort((a, b) => {
-        const levelOrder = { S: 0, A: 1, B: 2, C: 3 };
-        const levelDiff = (levelOrder[a.level || a.priority || 'B'] ?? 2) - (levelOrder[b.level || b.priority || 'B'] ?? 2);
-        if (levelDiff !== 0) return levelDiff;
-        return String(a.title || '').localeCompare(String(b.title || ''));
-    });
-    document.getElementById('dayModalTitle').textContent = dateKey + ' 的活动';
-    document.getElementById('dayModalBody').innerHTML = items.map(eventCard).join('') || '<div class="empty"><strong>这一天没有活动</strong></div>';
-    openModal('dayModal');
-}
-function renderCalendar(events, range) {
-    const root = document.getElementById('calendarRoot');
-    const heads = ['一', '二', '三', '四', '五', '六', '日'].map(d => '<div class="weekday">周' + d + '</div>').join('');
-    const byDate = {};
-    events.forEach(e => {
-        const key = eventDateKey(e);
-        if (!key) return;
-        byDate[key] = byDate[key] || [];
-        byDate[key].push(e);
-    });
-    let dates = [];
-    if (currentView === 'week') {
-        for (let i = 0; i < 7; i++) {
-            const d = new Date(range.startDate);
-            d.setDate(range.startDate.getDate() + i);
-            dates.push(d);
-        }
-    } else {
-        const first = new Date(range.year, range.month, 1);
-        const offset = (first.getDay() + 6) % 7;
-        const start = new Date(first);
-        start.setDate(first.getDate() - offset);
-        for (let i = 0; i < 42; i++) {
-            const d = new Date(start);
-            d.setDate(start.getDate() + i);
-            dates.push(d);
-        }
-    }
-    let html = '<div class="calendar-grid ' + (currentView === 'week' ? 'week-grid' : '') + '">' + heads;
-    dates.forEach(d => {
-        const key = localDateKey(d);
-        const out = currentView === 'month' && d.getMonth() !== range.month;
-        const todaysClass = key === todayChina() ? ' today' : '';
-        const dayEvents = byDate[key] || [];
-        html += '<div class="day ' + (out ? 'out' : '') + todaysClass + '"><div class="day-num"><span>' + (d.getMonth() + 1) + '/' + d.getDate() + '</span></div>';
-        dayEvents.slice(0, 5).forEach(e => {
-            const label = compactTimeLabel(e);
-            html += '<button class="event-pill p-' + esc(e.level || e.priority || 'B') + '" data-action="open-edit" data-event-key="' + esc(eventActionKey(e)) + '" title="' + esc((e.calendar_time_label || '') + ' · ' + (e.reason || e.title)) + '">' + (label ? '<strong>' + esc(label) + '</strong> ' : '') + esc(e.title) + '</button>';
-        });
-        if (dayEvents.length > 5) html += '<span class="more-pill">还有 ' + esc(dayEvents.length - 5) + ' 个</span>';
-        if (dayEvents.length) html += '<button class="mini day-more" data-action="open-day-details" data-date-key="' + esc(key) + '">查看当天 <span class="day-count">(' + esc(dayEvents.length) + ')</span></button>';
-        html += '</div>';
-    });
-    html += '</div>';
-    if (!events.length) html = '<div class="empty"><strong>当前范围没有活动</strong><p>可以添加活动，或从公众号按时间范围批量提取。</p><div class="row-actions empty-actions"><button class="primary" data-action="open-modal" data-modal="extractModal">公众号提取</button><button data-action="open-modal" data-modal="addModal">添加活动</button></div></div>';
-    root.innerHTML = html;
-}
-function renderList(events) {
-    const root = document.getElementById('calendarRoot');
-    if (!events.length) {
-        root.innerHTML = '<div class="empty"><strong>暂无活动</strong><p>换一个筛选条件，或添加新的活动。</p></div>';
-        return;
-    }
-    root.innerHTML = bulkDeleteToolbar(events) + '<div class="' + (currentView === 'cards' ? 'cards-view' : 'list-view') + '">' + events.map(eventCard).join('') + '</div>';
-    updateBulkDeleteBar();
-}
-function eventActionKey(e) {
-    return e.id || e._ui_key || eventDedupeKey(e);
-}
-function eventCard(e) {
-    const tags = (e.tags || []).slice(0, 3).map(t => '<span class="tag">' + esc(t) + '</span>').join('');
-    const calendarTime = e.calendar_time || e.start_time || '时间待定';
-    const calendarLabel = e.calendar_time_label || (e.calendar_time ? '日历时间' : '活动时间');
-    const fav = !!(e.is_favorite || e.favorite);
-    const status = e.status || 'pending';
-    const level = e.level || e.priority || 'B';
-    const levelBadge = '<span class="badge level level-' + esc(level) + '" title="' + esc(levelText(level)) + '">' + esc(level) + '</span>';
-    const duplicate = Number(e.duplicate_count || 1) > 1 ? '<span class="badge duplicate-badge">+' + esc(Number(e.duplicate_count || 1) - 1) + ' 来源</span>' : '';
-    const favoriteText = fav ? '已收藏' : '收藏';
-    const key = eventActionKey(e);
-    const favoriteAction = e.id
-        ? '<button class="mini" data-action="toggle-favorite" data-event-id="' + esc(e.id) + '" data-favorite="' + String(!fav) + '">' + favoriteText + '</button>'
-        : '<button class="mini" disabled>未同步</button>';
-    const selectBox = e.id
-        ? '<label class="event-select" data-action="stop-card-click"><input type="checkbox" data-action="toggle-event-selection" data-event-select="' + esc(e.id) + '" ' + (selectedEventIds.has(e.id) ? 'checked' : '') + '><span>选择</span></label>'
-        : '';
-    return '<article class="event-card" data-action="open-edit" data-event-key="' + esc(key) + '">' +
-        '<div class="event-card-top"><div class="event-card-badges">' + levelBadge + duplicate + '</div><div class="event-card-state">' + selectBox + '<span class="badge status-' + esc(status) + '">' + esc(statusText(status)) + '</span></div></div>' +
-        '<h3 class="event-title">' + (fav ? '★ ' : '') + esc(e.title) + '</h3>' +
-        '<div class="event-meta"><span>' + esc(calendarLabel + '：' + calendarTime) + '</span><span>' + esc(e.location || '地点待定') + '</span><span>' + esc(e.source_name || e.account || '未知来源') + '</span></div>' +
-        (tags ? '<div class="tags">' + tags + '</div>' : '') +
-        '<div class="reason">' + esc(e.reason || '暂无推荐理由') + '</div>' +
-        '<div class="card-actions"><button class="mini primary-soft" data-action="open-edit" data-event-key="' + esc(key) + '">查看详情</button>' + favoriteAction + '<a class="btn mini" data-action="stop-card-click" href="/api/events/calendar.ics" target="_blank" rel="noopener">加入日历</a></div>' +
-        '</article>';
-}
-function selectableCurrentEvents() {
-    return currentEvents.filter(e => !!e.id);
-}
-function syncSelectionWithCurrentEvents() {
-    const visibleIds = new Set(selectableCurrentEvents().map(e => e.id));
-    selectedEventIds = new Set([...selectedEventIds].filter(id => visibleIds.has(id)));
-}
-function bulkDeleteToolbar(events) {
-    const selectable = (events || []).filter(e => !!e.id);
-    if (!selectable.length) return '';
-    return '<div class="bulk-toolbar" id="bulkDeleteBar">' +
-        '<div><strong id="bulkSelectedCount">已选 0 个</strong><span>可批量彻底删除当前列表中的活动</span></div>' +
-        '<div class="row-actions bulk-actions"><button class="mini" data-action="select-all-visible-events">全选当前页</button><button class="mini" data-action="clear-event-selection">取消选择</button><button class="mini danger" data-action="bulk-delete-selected">删除已选</button></div>' +
-        '</div>';
-}
-function toggleEventSelection(id, checked) {
-    if (!id) return;
-    if (checked) selectedEventIds.add(id);
-    else selectedEventIds.delete(id);
-    updateBulkDeleteBar();
-}
-function selectAllVisibleEvents() {
-    selectableCurrentEvents().forEach(e => selectedEventIds.add(e.id));
-    document.querySelectorAll('[data-event-select]').forEach(input => { input.checked = selectedEventIds.has(input.getAttribute('data-event-select')); });
-    updateBulkDeleteBar();
-}
-function clearEventSelection() {
-    selectedEventIds.clear();
-    document.querySelectorAll('[data-event-select]').forEach(input => { input.checked = false; });
-    updateBulkDeleteBar();
-}
-function updateBulkDeleteBar() {
-    const count = selectedEventIds.size;
-    const label = document.getElementById('bulkSelectedCount');
-    const bar = document.getElementById('bulkDeleteBar');
-    if (label) label.textContent = '已选 ' + count + ' 个';
-    if (bar) bar.classList.toggle('has-selection', count > 0);
-}
 async function bulkDeleteSelected() {
     const ids = [...new Set([...selectedEventIds].flatMap(id => eventDeleteIds(id)))];
     if (!ids.length) return setLine('calendarStatus', '请先选择要删除的活动', 'err');
@@ -528,6 +233,7 @@ async function toggleFavorite(id, favorite) {
 function openEdit(id) {
     const e = currentEvents.find(item => item.id === id || item._ui_key === id);
     if (!e) return;
+    window.EventRadarModals?.ensureModal('editModal');
     document.getElementById('editId').value = e.id || '';
     document.getElementById('editTitle').value = e.title || '';
     document.getElementById('editTags').value = (e.tags || []).join('，');
@@ -1153,6 +859,4 @@ bindStaticActions();
 window.addEventListener('resize', syncFilterDrawer);
 syncFilterDrawer();
 document.getElementById('monthInput').value = todayChina().slice(0, 7);
-document.getElementById('extractStart').value = todayChina();
-document.getElementById('extractEnd').value = todayChina();
 setView('month');

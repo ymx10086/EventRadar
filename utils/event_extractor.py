@@ -108,6 +108,22 @@ REGISTRATION_URL_LABELS = [
     "报名链接", "报名入口", "报名网址", "报名地址", "注册链接", "注册入口",
     "参与链接", "活动链接", "详情链接", "链接", "URL", "Registration URL", "Register",
 ]
+LOCATION_LABELS = [
+    "上课地点", "活动地点", "会议地点", "举办地点", "线下地点", "地点", "地址",
+    "Location", "Venue", "Address",
+]
+LOCATION_STOP_LABELS = [
+    "主办方", "主办单位", "主办", "承办方", "承办单位", "承办", "协办方", "协办单位", "协办",
+    "组织方", "举办方", "费用", "收费", "票价", "价格", "免费", "报名方式", "报名入口", "报名链接",
+    "报名时间", "报名开始", "报名截止", "截止时间", "参与方式", "活动时间", "时间", "日期",
+    "联系人", "联系方式", "电话", "邮箱", "微信", "嘉宾", "讲师", "议程", "对象", "面向对象",
+    "名额", "要求", "福利", "奖项", "备注", "Organizer", "Host", "Fee", "Price",
+    "Registration", "Register", "Deadline", "Contact", "Speaker", "Agenda",
+]
+NON_LOCATION_KEYWORDS = [
+    "主办", "承办", "协办", "费用", "收费", "报名", "截止", "联系人", "联系方式",
+    "电话", "邮箱", "嘉宾", "议程", "奖项", "扫码", "二维码",
+]
 
 
 @dataclass
@@ -600,7 +616,10 @@ def _system_prompt() -> str:
         "字段要求："
         "title 使用活动真实名称，不要简单复制文章标题；"
         "start_time/end_time 填活动举办时间；signup_start_time/signup_deadline 填报名时间；"
-        "location 填完整地点/线上平台/地址，city 填城市；organizer 填主办/承办/协办单位；"
+        "location 只填举办场地、完整地址或线上平台，例如教学楼/会议室/腾讯会议/Zoom；"
+        "不要把主办方、承办方、费用、报名方式、报名链接、报名时间、联系人、嘉宾、活动介绍放进 location；"
+        "如果地点后面紧跟“主办方/费用/报名方式/联系人”等标签，location 必须在这些标签前停止；"
+        "没有明确场地或线上平台时 location 留空；city 填城市；organizer 填主办/承办/协办单位；"
         "signup_url 填报名链接、活动链接或可报名页面；"
         "description 用一句话概括活动对象、主题、嘉宾或亮点；"
         "evidence 填支持该活动的原文片段。"
@@ -657,7 +676,7 @@ def fallback_extract(compressed: Dict) -> List[Dict]:
 
     date_match = DATE_RE.search(text)
     time_match = TIME_RE.search(text)
-    location = _best_labeled_value(text, ["上课地点", "活动地点", "会议地点", "举办地点", "线下地点", "地点", "地址", "Location", "Venue", "Address"])
+    location = _best_location_value(text)
     organizer = _best_labeled_value(text, ["主办方", "主办单位", "主办", "承办方", "承办单位", "承办", "协办方", "协办单位", "Organizer", "Host"])
     signup_start = _best_labeled_value(text, ["报名开始", "报名时间", "报名日期", "报名开放", "开放报名", "Registration Opens", "Registration"])
     deadline = _best_labeled_value(text, ["报名截止", "截止时间", "截止日期", "报名截止时间", "Deadline", "Application Deadline"])
@@ -719,7 +738,7 @@ def supplement_events_from_context(raw_events: List[Dict], compressed: Dict) -> 
     context = {
         "start_time": _extract_start_time(text),
         "end_time": _best_labeled_value(text, ["结束时间", "活动结束", "End Time"]),
-        "location": _best_labeled_value(text, ["上课地点", "活动地点", "会议地点", "举办地点", "线下地点", "地点", "地址", "Location", "Venue", "Address"]),
+        "location": _best_location_value(text),
         "city": _extract_city(text),
         "organizer": _best_labeled_value(text, ["主办方", "主办单位", "主办", "承办方", "承办单位", "承办", "协办方", "协办单位", "Organizer", "Host"]),
         "signup_start_time": _best_labeled_value(text, ["报名开始", "报名时间", "报名日期", "报名开放", "开放报名", "Registration Opens", "Registration"]),
@@ -777,12 +796,59 @@ def _best_labeled_value(text: str, labels: List[str]) -> str:
     return candidates[0]
 
 
+def _best_location_value(text: str) -> str:
+    candidates = []
+    for label in LOCATION_LABELS:
+        pattern = re.compile(
+            rf"(?:[【\[]?{re.escape(label)}[】\]]?|{re.escape(label)})\s*[:：]?\s*([^\n。；;]{{2,{LABEL_VALUE_LIMIT}}})",
+            re.IGNORECASE,
+        )
+        for match in pattern.finditer(text or ""):
+            value = clean_location_value(match.group(1))
+            if value:
+                candidates.append(value)
+    if not candidates:
+        return ""
+    candidates = sorted(set(candidates), key=lambda value: (_location_quality(value), len(value)), reverse=True)
+    return candidates[0]
+
+
 def _clean_label_value(value: str) -> str:
     value = re.sub(r"^[】\]：:\s]+", "", str(value or "")).strip()
     value = re.sub(r"^(?:方|单位|时间|日期|地点|地址|链接|入口)\s*[:：]\s*", "", value)
     value = re.sub(r"\s+", " ", value)
     value = re.sub(r"(?:更多|详情|扫码|点击).*$", "", value).strip()
     return value.strip(" ：:，,；;。")
+
+
+def clean_location_value(value: str) -> str:
+    value = _clean_label_value(value)
+    if not value:
+        return ""
+
+    stop_pattern = "|".join(re.escape(label) for label in sorted(LOCATION_STOP_LABELS, key=len, reverse=True))
+    value = re.split(rf"\s*(?:{stop_pattern})\s*[:：]", value, maxsplit=1, flags=re.IGNORECASE)[0]
+    value = re.split(rf"[，,、]\s*(?:{stop_pattern})\s*[:：]?", value, maxsplit=1, flags=re.IGNORECASE)[0]
+    value = re.sub(r"\s+", " ", value).strip(" ：:，,；;。|/-")
+
+    if not value or URL_RE.search(value):
+        return ""
+    if DATE_RE.search(value) and not any(k in value for k in ["会议室", "教室", "楼", "厅", "馆", "中心", "校区"]):
+        return ""
+    keyword_hits = sum(1 for keyword in NON_LOCATION_KEYWORDS if keyword.lower() in value.lower())
+    has_place_hint = any(
+        hint in value
+        for hint in [
+            "线上", "腾讯会议", "Zoom", "飞书", "会议室", "教室", "报告厅", "路演厅", "礼堂",
+            "校区", "学院", "大学", "园区", "中心", "大厦", "楼", "馆", "厅", "室", "路", "街",
+            "区", "市", "Room", "Hall", "Building", "Campus", "Online",
+        ]
+    )
+    if keyword_hits and not has_place_hint:
+        return ""
+    if keyword_hits >= 2:
+        return ""
+    return value[:80].strip(" ：:，,；;。")
 
 
 def _field_quality(value: str) -> int:
@@ -798,6 +864,21 @@ def _field_quality(value: str) -> int:
     if len(value) >= 6:
         score += 1
     return score
+
+
+def _location_quality(value: str) -> int:
+    score = _field_quality(value)
+    if any(hint in value for hint in ["会议室", "教室", "报告厅", "路演厅", "礼堂", "中心", "大厦", "校区", "Zoom", "腾讯会议", "线上"]):
+        score += 5
+    if any(keyword.lower() in value.lower() for keyword in NON_LOCATION_KEYWORDS):
+        score -= 8
+    if len(value) > 60:
+        score -= 2
+    return score
+
+
+_clean_location_value = clean_location_value
+
 
 
 def _extract_registration_url(text: str) -> str:
@@ -886,10 +967,11 @@ def _classify_event(text: str) -> str:
 
 def normalize_event(raw: Dict, article: Dict, method: str) -> Dict:
     title = str(raw.get("title") or article.get("title") or "").strip()
+    location = clean_location_value(str(raw.get("location") or ""))
     event_id_seed = "|".join([
         title.lower(),
         str(raw.get("start_time") or ""),
-        str(raw.get("location") or ""),
+        location,
         article.get("link", ""),
     ])
     image_paths = [
@@ -905,7 +987,7 @@ def normalize_event(raw: Dict, article: Dict, method: str) -> Dict:
         "source_publish_time": article.get("publish_time_iso") or article.get("publish_time", ""),
         "start_time": str(raw.get("start_time") or ""),
         "end_time": str(raw.get("end_time") or ""),
-        "location": str(raw.get("location") or ""),
+        "location": location,
         "organizer": str(raw.get("organizer") or ""),
         "signup_start_time": str(raw.get("signup_start_time") or raw.get("registration_start_time") or raw.get("signup_time") or raw.get("registration_time") or ""),
         "signup_deadline": str(raw.get("signup_deadline") or ""),

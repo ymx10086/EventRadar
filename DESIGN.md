@@ -139,10 +139,16 @@ Badges should be pill-shaped, subtle, and compact.
 ## Current Production Layer
 
 - `static/css/events-app.css` is the production style layer for `static/events.html`.
-- `static/js/events-app.js` is the production behavior layer for `static/events.html`.
+- `static/js/events-app.js` is the page orchestration layer for `static/events.html`.
+- `static/js/state/events-state.js` owns shared state and pure data helpers.
+- `static/js/api/events-api.js` owns API helper calls.
+- `static/js/render/event-card.js` owns event card and right-rail rendering.
+- `static/js/render/calendar-renderer.js` owns calendar, list, and stats rendering.
+- `static/js/ui/modals.js` owns modal templates and lazy modal mounting.
 - Keep the events page styling in this file so future edits do not create competing CSS layers.
 - Avoid reintroducing page-level inline CSS unless the rule is truly critical and cannot live in the stylesheet.
 - Prefer `data-action` event binding over inline `onclick`.
 - New static controls should be wired in `bindStaticActions()`.
 - Dynamic cards may use generated action attributes, but should not reintroduce broad inline script blocks.
-- `!important` is allowed only while overriding legacy styles. When touching a selector, first check whether specificity or stale legacy CSS can be reduced instead.
+- Modals should not be kept as always-on DOM in `events.html`; add a template in `static/js/ui/modals.js` and mount it through `EventRadarModals.ensureModal()`.
+- Avoid `!important`. If a rule appears to need it, first fix selector order, stale legacy CSS, or component scoping.

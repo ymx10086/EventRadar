@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from utils import rss_store
+from utils.event_extractor import clean_location_value
 
 
 DATA_DIR = Path(os.getenv("PERSONAL_ASSISTANT_DIR", str(Path(__file__).parent.parent / "data" / "personal_assistant")))
@@ -346,7 +347,7 @@ def normalize_event(event: Dict, profile: Optional[Dict] = None) -> Dict:
         "signup_start_time": event.get("signup_start_time", ""),
         "calendar_time": event.get("calendar_time", ""),
         "calendar_time_label": event.get("calendar_time_label", ""),
-        "location": event.get("location", ""),
+        "location": clean_location_value(event.get("location", "")),
         "city": event.get("city", ""),
         "organizer": event.get("organizer", ""),
         "description": event.get("description", ""),

@@ -32,6 +32,7 @@ from utils.rss_poller import rss_poller, FETCH_FULL_CONTENT
 from utils.event_extractor import (
     ExtractConfig,
     build_events_ics,
+    clean_location_value,
     default_archive_path,
     extract_events_from_archive,
     output_dir_for,
@@ -351,7 +352,7 @@ async def add_manual_event(req: ManualEventRequest):
         "start_time": payload.get("start_time") or inferred_start,
         "end_time": payload.get("end_time", ""),
         "signup_start_time": payload.get("signup_start_time", ""),
-        "location": payload.get("location") or (location_match.group(1).strip() if location_match else ""),
+        "location": clean_location_value(payload.get("location") or (location_match.group(1).strip() if location_match else "")),
         "city": payload.get("city", ""),
         "organizer": payload.get("organizer", ""),
         "description": payload.get("description") or payload.get("pasted_text", ""),

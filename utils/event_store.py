@@ -866,6 +866,13 @@ def update_event(event_id: str, updates: Dict) -> Optional[Dict]:
         values["tags"] = json.dumps(values["tags"], ensure_ascii=False)
     if "is_favorite" in values:
         values["is_favorite"] = int(bool(values["is_favorite"]))
+    if "location" in values:
+        try:
+            from utils.event_extractor import clean_location_value
+
+            values["location"] = clean_location_value(values["location"])
+        except Exception:
+            values["location"] = str(values.get("location") or "")
 
     now = int(time.time())
     if values.get("status") == "confirmed":

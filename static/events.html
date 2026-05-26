@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EventRadar｜活动日历</title>
-    <link rel="stylesheet" href="/static/css/events-app.css?v=20260525-prod1">
+    <link rel="stylesheet" href="/static/css/events-app.css?v=20260526-records1">
 </head>
 <body>
     <div class="app-shell events-workbench">
@@ -20,6 +20,7 @@
                 <button class="nav-item active" data-page="app" data-section="calendar-month" onclick="showPage('app', 'page-calendar'); setView('month')">日历</button>
                 <button class="nav-item" data-page="app" data-section="activity-cards" onclick="showPage('app', 'page-calendar'); setView('cards')">活动列表</button>
                 <button class="nav-item" data-page="app" onclick="showPage('app', 'page-calendar'); openModal('extractModal')">公众号/RSS</button>
+                <button class="nav-item" data-page="app" onclick="showPage('app', 'page-calendar'); openFetchRecords()">抓取记录</button>
                 <a class="nav-item" href="/history.html">历史记录</a>
                 <button class="nav-item" data-page="app" onclick="showPage('app', 'page-calendar'); openModal('settingsModal'); loadSettings(); loadRuns()">设置</button>
                 <a class="nav-item" href="/admin.html">管理后台</a>
@@ -149,9 +150,12 @@
             <section class="card rail-card">
                 <span class="eyebrow">Import</span>
                 <h2>导入活动</h2>
-                <button onclick="openModal('extractModal')">公众号文章</button>
-                <button onclick="openModal('addModal')">链接 / 文本 / 图片</button>
-                <button onclick="openModal('sourcesModal'); loadSources()">管理来源</button>
+                <div class="rail-button-stack">
+                    <button onclick="openModal('extractModal')">公众号文章</button>
+                    <button onclick="openModal('addModal')">链接 / 文本 / 图片</button>
+                    <button onclick="openModal('sourcesModal'); loadSources()">管理来源</button>
+                    <button onclick="openFetchRecords()">抓取记录</button>
+                </div>
             </section>
         </aside>
     </div>
@@ -293,11 +297,14 @@
                         <div class="field"><label>必须使用代理池</label><select id="settingProxyRequired"><option value="false">否</option><option value="true">是</option></select><p>开启后未配置 PROXY_URLS 会停止抓正文。</p></div>
                     </div>
                     <div class="status-line" id="fetchSafetyStatus"></div>
-                    <h3>抓取日志</h3>
+                    <h3>最近抓取</h3>
                     <div id="runLog"></div>
-                    <a class="btn mini" href="/admin.html">打开管理后台</a>
+                    <div class="row-actions utility-actions">
+                        <button class="mini" onclick="openFetchRecords()">查看完整记录</button>
+                        <a class="btn mini" href="/admin.html">打开管理后台</a>
+                    </div>
                 </details>
-                <div class="row-actions">
+                <div class="row-actions settings-actions">
                     <button class="primary" onclick="saveSettings()">保存设置</button>
                     <button onclick="runAutomationNow()">立即抓取所有关注源</button>
                     <button onclick="cleanupOldEvents()">清理过期活动</button>
@@ -309,6 +316,23 @@
                     <div class="progress-message" id="automationProgressMessage">等待开始</div>
                     <div class="progress-log" id="automationProgressLog"></div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="fetchRecordsModal">
+        <div class="modal large">
+            <div class="modal-head"><h2>抓取记录</h2><button class="mini" onclick="closeModal('fetchRecordsModal')">关闭</button></div>
+            <div class="modal-body">
+                <div class="records-toolbar">
+                    <div>
+                        <span class="eyebrow">Fetch History</span>
+                        <p class="mode-description">查看每次抓取的时间、公众号、文章和抽取结果。</p>
+                    </div>
+                    <button class="mini" onclick="loadFetchRecords()">刷新</button>
+                </div>
+                <div class="status-line" id="fetchRecordsStatus"></div>
+                <div class="fetch-records-list" id="fetchRecordsList"></div>
             </div>
         </div>
     </div>
@@ -1128,6 +1152,68 @@
             el.className = 'status-line ' + (safety.paused ? 'err' : 'ok');
             el.textContent = bits.join(' · ');
         }
+        function formatDateTime(ts) {
+            return ts ? new Date(ts * 1000).toLocaleString() : '-';
+        }
+        function formatShortDateTime(ts) {
+            return ts ? new Date(ts * 1000).toLocaleString([], { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-';
+        }
+        function accountNames(accounts) {
+            const names = (accounts || []).map(item => item.nickname || item.fakeid || '').filter(Boolean);
+            return names.length ? names.join('、') : '未记录来源';
+        }
+        function renderRecordArticle(article) {
+            const time = article.publish_time ? formatShortDateTime(article.publish_time) : (article.fetched_at ? formatShortDateTime(article.fetched_at) : '-');
+            const account = article.account_name || article.account_alias || article.fakeid || '未知来源';
+            const link = article.link
+                ? '<a class="btn mini" href="' + esc(article.link) + '" target="_blank" rel="noopener">原文</a>'
+                : '<span class="record-muted">无链接</span>';
+            return '<div class="record-article">' +
+                '<div class="article-time">' + esc(time) + '</div>' +
+                '<div class="article-main"><strong title="' + esc(article.title || '') + '">' + esc(article.title || '未命名文章') + '</strong><p>' + esc(account) + (article.image_count ? ' · ' + esc(article.image_count) + ' 张图' : '') + '</p></div>' +
+                '<div class="article-action">' + link + '</div>' +
+                '</div>';
+        }
+        function renderFetchRecord(record) {
+            const ok = record.status === 'success';
+            const articles = record.articles || [];
+            const dateRange = (record.start_date && record.end_date && record.start_date !== record.end_date)
+                ? record.start_date + ' - ' + record.end_date
+                : (record.date || record.start_date || '-');
+            return '<article class="fetch-record-card">' +
+                '<div class="record-head">' +
+                    '<div><span class="badge ' + (ok ? 'status-confirmed' : 'status-ignored') + '">' + esc(ok ? '成功' : '失败') + '</span><h3>' + esc(formatDateTime(record.started_at)) + '</h3><p>' + esc(dateRange) + ' · 耗时 ' + esc(record.duration_seconds || 0) + 's</p></div>' +
+                    '<div class="record-metrics"><span><strong>' + esc(record.article_count || 0) + '</strong>文章</span><span><strong>' + esc(record.event_count || 0) + '</strong>活动</span><span><strong>' + esc(record.saved_count || 0) + '</strong>入库</span></div>' +
+                '</div>' +
+                '<div class="record-source-line">来源：' + esc(accountNames(record.selected_accounts)) + '</div>' +
+                (record.error ? '<div class="status-line err">' + esc(record.error) + '</div>' : '') +
+                '<details class="record-articles" open><summary>本次抓取文章 ' + esc(articles.length) + (record.articles_truncated ? '+' : '') + ' 篇</summary>' +
+                '<div class="record-article-list">' + (articles.length ? articles.map(renderRecordArticle).join('') : '<div class="empty compact-empty"><strong>没有找到文章归档</strong><p>旧记录可能没有生成 daily archive，或归档文件已被清理。</p></div>') + '</div>' +
+                '</details>' +
+                '</article>';
+        }
+        async function loadFetchRecords() {
+            const status = document.getElementById('fetchRecordsStatus');
+            const list = document.getElementById('fetchRecordsList');
+            if (!status || !list) return;
+            status.className = 'status-line';
+            status.textContent = '正在读取抓取记录...';
+            try {
+                const res = await fetch('/api/automation/fetch-records?limit=20&articles_per_run=120');
+                const data = await res.json();
+                if (!res.ok || !data.success) throw new Error(data.detail || '读取失败');
+                const records = (data.data && data.data.records) || [];
+                list.innerHTML = records.map(renderFetchRecord).join('') || '<div class="empty"><strong>暂无抓取记录</strong><p>运行一次自动抓取后，这里会显示文章清单和抽取结果。</p></div>';
+                status.textContent = records.length ? '共 ' + records.length + ' 次记录' : '';
+            } catch (err) {
+                status.textContent = err.message || String(err);
+                status.className = 'status-line err';
+            }
+        }
+        function openFetchRecords() {
+            openModal('fetchRecordsModal');
+            loadFetchRecords();
+        }
         async function pollAutomationProgress(stopWhenIdle) {
             let seenActive = false;
             let idleChecks = 0;
@@ -1149,7 +1235,12 @@
             const res = await fetch('/api/automation/runs?limit=8');
             const data = await res.json();
             const runs = (data.data && data.data.runs) || [];
-            document.getElementById('runLog').innerHTML = runs.map(r => '<div class="log-row"><div><strong>' + esc(r.status) + '</strong><p>' + esc(r.started_at ? new Date(r.started_at * 1000).toLocaleString() : '-') + ' · ' + esc(r.duration_seconds || 0) + 's · ' + esc(r.error || '') + '</p></div></div>').join('') || '<div class="empty"><strong>暂无抓取日志</strong></div>';
+            document.getElementById('runLog').innerHTML = runs.map(r => {
+                const result = r.result || {};
+                const archive = result.archive || {};
+                const events = result.events || {};
+                return '<div class="log-row"><div><strong>' + esc(r.status === 'success' ? '抓取成功' : '抓取失败') + '</strong><p>' + esc(formatDateTime(r.started_at)) + ' · ' + esc(r.duration_seconds || 0) + 's · ' + esc(archive.article_count || events.article_count || 0) + ' 篇文章 · ' + esc(events.event_count || 0) + ' 个活动' + (r.error ? ' · ' + esc(r.error) : '') + '</p></div></div>';
+            }).join('') || '<div class="empty"><strong>暂无抓取日志</strong></div>';
         }
         function syncFilterDrawer() {
             const drawer = document.getElementById('filtersDrawer');

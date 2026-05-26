@@ -246,6 +246,8 @@ label {
 }
 
 .nav-item {
+    display: inline-flex !important;
+    align-items: center !important;
     width: 100% !important;
     justify-content: flex-start !important;
     border-color: transparent !important;
@@ -274,6 +276,17 @@ label {
 .nav-actions .btn {
     width: 100%;
     justify-content: center;
+}
+
+.rail-button-stack {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+}
+
+.rail-button-stack > * {
+    width: 100%;
+    justify-content: center !important;
 }
 
 .product-main {
@@ -363,6 +376,15 @@ label {
     gap: 6px !important;
     justify-content: flex-end !important;
     min-width: 0;
+}
+
+.workbench-actions {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(86px, 1fr));
+}
+
+.workbench-actions > * {
+    width: 100%;
 }
 
 .metric-strip,
@@ -1021,6 +1043,157 @@ label {
     background: #fbfcfe;
 }
 
+.utility-actions {
+    justify-content: flex-start !important;
+}
+
+.settings-actions {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch !important;
+}
+
+.settings-actions > * {
+    width: 100%;
+}
+
+.records-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.fetch-records-list {
+    display: grid;
+    gap: 12px;
+}
+
+.fetch-record-card {
+    min-width: 0;
+    padding: 12px;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius);
+    background: #fbfcfe;
+}
+
+.record-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: start;
+}
+
+.record-head h3 {
+    margin: 6px 0 2px;
+    color: var(--app-text);
+    font-size: 15px;
+    line-height: 20px;
+}
+
+.record-head p,
+.record-source-line,
+.record-muted {
+    color: var(--app-muted);
+    font-size: 12px;
+    line-height: 18px;
+}
+
+.record-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(58px, 1fr));
+    gap: 6px;
+    min-width: 210px;
+}
+
+.record-metrics span {
+    padding: 8px;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-sm);
+    background: var(--app-surface);
+    color: var(--app-muted);
+    font-size: 11px;
+    text-align: center;
+}
+
+.record-metrics strong {
+    display: block;
+    color: var(--app-text);
+    font-size: 16px;
+    line-height: 18px;
+}
+
+.record-source-line {
+    margin-top: 8px;
+}
+
+.record-articles {
+    margin-top: 10px;
+    border-top: 1px solid var(--app-border);
+    padding-top: 8px;
+}
+
+.record-articles summary {
+    cursor: pointer;
+    color: var(--app-text-2);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.record-article-list {
+    display: grid;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.record-article {
+    display: grid;
+    grid-template-columns: 72px minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    min-width: 0;
+    padding: 8px;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-sm);
+    background: var(--app-surface);
+}
+
+.article-time {
+    color: var(--app-muted);
+    font-size: 11px;
+    line-height: 16px;
+}
+
+.article-main {
+    min-width: 0;
+}
+
+.article-main strong {
+    display: block;
+    overflow: hidden;
+    color: var(--app-text);
+    font-size: 13px;
+    line-height: 18px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.article-main p {
+    margin-top: 2px;
+    overflow: hidden;
+    color: var(--app-muted);
+    font-size: 12px;
+    line-height: 16px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.article-action {
+    display: flex;
+    justify-content: flex-end;
+}
+
 .source-row p,
 .log-row p {
     margin-top: 3px;
@@ -1137,6 +1310,19 @@ label {
     .workbench-actions,
     .calendar-nav {
         justify-content: flex-start !important;
+    }
+
+    .settings-actions {
+        grid-template-columns: 1fr !important;
+    }
+
+    .record-head {
+        grid-template-columns: 1fr;
+    }
+
+    .record-metrics {
+        min-width: 0;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
     .metric-strip,
@@ -1300,7 +1486,16 @@ label {
     }
 
     .source-row,
-    .log-row {
+    .log-row,
+    .record-article {
         grid-template-columns: 1fr;
+    }
+
+    .records-toolbar {
+        grid-template-columns: 1fr;
+    }
+
+    .article-action {
+        justify-content: flex-start;
     }
 }

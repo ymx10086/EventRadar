@@ -4,7 +4,8 @@
 Automation routes for event extraction and account discovery.
 """
 
-from typing import List, Optional
+import json
+from typing import Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -17,6 +18,7 @@ from utils.account_discovery import (
     subscribe_top_candidates,
 )
 from utils.automation_history import list_runs
+from utils.daily_archive import get_archive_file
 from utils.event_automation import event_automation
 
 router = APIRouter()
@@ -65,6 +67,104 @@ async def automation_runs(limit: int = 30):
         data={
             "run_count": len(runs),
             "runs": runs,
+        },
+    )
+
+
+def _compact_article(article: Dict) -> Dict:
+    return {
+        "id": article.get("id"),
+        "title": article.get("title", ""),
+        "account_name": article.get("account_name", "") or article.get("nickname", ""),
+        "account_alias": article.get("account_alias", "") or article.get("alias", ""),
+        "fakeid": article.get("fakeid", ""),
+        "link": article.get("link", ""),
+        "digest": article.get("digest", ""),
+        "author": article.get("author", ""),
+        "publish_time": article.get("publish_time", 0),
+        "publish_time_iso": article.get("publish_time_iso", ""),
+        "fetched_at": article.get("fetched_at", 0),
+        "fetched_at_iso": article.get("fetched_at_iso", ""),
+        "image_count": len(article.get("images") or []),
+        "source": article.get("source", ""),
+    }
+
+
+def _articles_for_day(date: str, fakeids: set, max_articles: int) -> List[Dict]:
+    try:
+        archive_file = get_archive_file(date)
+    except ValueError:
+        return []
+    if not archive_file.exists():
+        return []
+    try:
+        payload = json.loads(archive_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+
+    articles = []
+    for account in payload.get("accounts", []):
+        account_fakeid = account.get("fakeid", "")
+        if fakeids and account_fakeid not in fakeids:
+            continue
+        for article in account.get("articles", []):
+            if len(articles) >= max_articles:
+                return articles
+            item = dict(article)
+            item.setdefault("account_name", account.get("nickname", ""))
+            item.setdefault("account_alias", account.get("alias", ""))
+            item.setdefault("fakeid", account_fakeid)
+            articles.append(_compact_article(item))
+    return articles
+
+
+@router.get("/fetch-records", response_model=AutomationResponse, summary="抓取记录和文章清单")
+async def automation_fetch_records(limit: int = 20, articles_per_run: int = 80):
+    limit = max(1, min(limit, 100))
+    articles_per_run = max(1, min(articles_per_run, 300))
+    records = []
+    for run in list_runs(limit):
+        result = run.get("result") or {}
+        archive = result.get("archive") or {}
+        events = result.get("events") or {}
+        selected_accounts = result.get("selected_accounts") or []
+        fakeids = {item.get("fakeid", "") for item in selected_accounts if item.get("fakeid")}
+        days = archive.get("days") or []
+
+        articles = []
+        for day in days:
+            if len(articles) >= articles_per_run:
+                break
+            date_text = day.get("date") or result.get("date") or ""
+            remaining = articles_per_run - len(articles)
+            articles.extend(_articles_for_day(date_text, fakeids, remaining))
+
+        records.append({
+            "status": run.get("status", ""),
+            "started_at": run.get("started_at", 0),
+            "finished_at": run.get("finished_at", 0),
+            "duration_seconds": run.get("duration_seconds", 0),
+            "error": run.get("error", ""),
+            "params": run.get("params") or {},
+            "date": result.get("date", ""),
+            "start_date": result.get("start_date", ""),
+            "end_date": result.get("end_date", ""),
+            "selected_accounts": selected_accounts,
+            "selected_account_count": result.get("selected_account_count", len(selected_accounts)),
+            "article_count": archive.get("article_count", events.get("article_count", 0)),
+            "event_count": events.get("event_count", 0),
+            "saved_count": events.get("saved_count", 0),
+            "downloaded_image_count": archive.get("downloaded_image_count", 0),
+            "failed_image_count": archive.get("failed_image_count", 0),
+            "days": days,
+            "articles": articles,
+            "articles_truncated": len(articles) >= articles_per_run,
+        })
+    return AutomationResponse(
+        success=True,
+        data={
+            "record_count": len(records),
+            "records": records,
         },
     )
 

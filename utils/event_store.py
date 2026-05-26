@@ -176,31 +176,44 @@ def _event_dedupe_key(event: Dict) -> str:
 
 
 def _events_are_duplicates(left: Dict, right: Dict) -> bool:
-    if _event_dedupe_scope(left) != _event_dedupe_scope(right):
-        return False
+    same_scope = _event_dedupe_scope(left) == _event_dedupe_scope(right)
     if (
-        str(left.get("extraction_method") or "").lower() == "fallback"
-        or str(right.get("extraction_method") or "").lower() == "fallback"
+        same_scope
+        and (
+            str(left.get("extraction_method") or "").lower() == "fallback"
+            or str(right.get("extraction_method") or "").lower() == "fallback"
+        )
+    ):
+        return True
+    return _events_match_same_day(left, right, require_strong_title=not same_scope)
+
+
+def _events_match_same_day(left: Dict, right: Dict, require_strong_title: bool = False) -> bool:
+    """Match the same real-world event even if it came from another article/source."""
+    if (
+        not require_strong_title
+        and (
+            str(left.get("extraction_method") or "").lower() == "fallback"
+            or str(right.get("extraction_method") or "").lower() == "fallback"
+        )
     ):
         return True
     left_title = _event_title_key(left.get("title") or left.get("source_article_title") or "")
     right_title = _event_title_key(right.get("title") or right.get("source_article_title") or "")
+    similarity = _title_similarity(left_title, right_title)
     title_matches = bool(
         not left_title
         or not right_title
         or left_title in right_title
         or right_title in left_title
-        or _title_similarity(left_title, right_title) >= 0.45
+        or similarity >= (0.62 if require_strong_title else 0.45)
     )
-    if title_matches and (
-        str(left.get("extraction_method") or "").lower() == "fallback"
-        or str(right.get("extraction_method") or "").lower() == "fallback"
-    ):
-        return True
+    if require_strong_title and not title_matches:
+        return False
     left_date = _event_date_for_dedupe(left)
     right_date = _event_date_for_dedupe(right)
     if title_matches and (not left_date or not right_date):
-        return True
+        return not require_strong_title
     if left_date and right_date and left_date != right_date:
         return False
     left_location = _compact_for_match(left.get("location") or left.get("city") or "")
@@ -228,6 +241,37 @@ def _event_quality_score(event: Dict) -> float:
     if event.get("description"):
         score += min(10, len(str(event.get("description"))) / 120)
     return score
+
+
+def _row_with_raw_event(row: sqlite3.Row) -> Dict:
+    item = dict(row)
+    try:
+        raw = json.loads(item.get("raw_json") or "{}")
+    except (json.JSONDecodeError, TypeError):
+        raw = {}
+    return {**item, **raw}
+
+
+def _find_existing_same_day(conn: sqlite3.Connection, event: Dict) -> Optional[sqlite3.Row]:
+    date_key = _event_date_for_dedupe(event)
+    if not date_key:
+        return None
+    rows = conn.execute(
+        """
+        SELECT * FROM events
+        WHERE calendar_time LIKE ?
+           OR start_time LIKE ?
+           OR signup_start_time LIKE ?
+           OR signup_deadline LIKE ?
+        ORDER BY is_favorite DESC, confirmed_at IS NOT NULL DESC, confidence DESC, updated_at DESC
+        LIMIT 120
+        """,
+        (date_key + "%", date_key + "%", date_key + "%", date_key + "%"),
+    ).fetchall()
+    for row in rows:
+        if _events_match_same_day(event, _row_with_raw_event(row), require_strong_title=True):
+            return row
+    return None
 
 
 def save_events(events: List[Dict]) -> int:
@@ -275,19 +319,14 @@ def save_events(events: List[Dict]) -> int:
                     ),
                 ).fetchall()
                 for candidate in candidates:
-                    try:
-                        candidate_raw = json.loads(candidate["raw_json"] or "{}")
-                    except (json.JSONDecodeError, TypeError):
-                        candidate_raw = {}
-                    if _events_are_duplicates(event, {**dict(candidate), **candidate_raw}):
+                    if _events_are_duplicates(event, _row_with_raw_event(candidate)):
                         existing = candidate
                         break
+            if not existing:
+                existing = _find_existing_same_day(conn, event)
             if existing and existing["id"] != event_id:
                 event_id = existing["id"]
-                try:
-                    old_raw = json.loads(existing["raw_json"] or "{}")
-                except (json.JSONDecodeError, TypeError):
-                    old_raw = {}
+                old_raw = _row_with_raw_event(existing)
                 if (
                     existing["status"] == "confirmed"
                     or int(existing["is_favorite"] or 0)
@@ -901,6 +940,72 @@ def delete_event(event_id: str, delete_files: bool = True) -> Dict:
         "deleted": True,
         "deleted_count": 1,
         "deleted_id": event_id,
+        "deleted_file_count": len(deleted_files),
+        "deleted_files": deleted_files,
+    }
+
+
+def delete_events(event_ids: List[str], delete_files: bool = True) -> Dict:
+    """Permanently delete multiple events and clean orphaned image files once."""
+    init_db()
+    ids = []
+    seen = set()
+    for raw_id in event_ids or []:
+        event_id = str(raw_id or "").strip()
+        if event_id and event_id not in seen:
+            ids.append(event_id)
+            seen.add(event_id)
+    if not ids:
+        return {
+            "deleted": False,
+            "deleted_count": 0,
+            "deleted_ids": [],
+            "missing_ids": [],
+            "deleted_file_count": 0,
+            "deleted_files": [],
+        }
+
+    placeholders = ",".join(["?"] * len(ids))
+    conn = _conn()
+    candidate_files: List[str] = []
+    referenced_files = set()
+    deleted_ids: List[str] = []
+    try:
+        rows = conn.execute(
+            f"SELECT id, image_paths FROM events WHERE id IN ({placeholders})",
+            ids,
+        ).fetchall()
+        deleted_ids = [row["id"] for row in rows]
+        if delete_files and deleted_ids:
+            delete_set = set(deleted_ids)
+            for row in rows:
+                candidate_files.extend(_json_list(row["image_paths"]))
+            deleted_placeholders = ",".join(["?"] * len(deleted_ids))
+            remaining = conn.execute(
+                f"SELECT id, image_paths FROM events WHERE id NOT IN ({deleted_placeholders})",
+                deleted_ids,
+            ).fetchall()
+            for row in remaining:
+                if row["id"] in delete_set:
+                    continue
+                for raw_path in _json_list(row["image_paths"]):
+                    safe_path = _safe_local_file_path(raw_path)
+                    if safe_path:
+                        referenced_files.add(str(safe_path))
+        if deleted_ids:
+            deleted_placeholders = ",".join(["?"] * len(deleted_ids))
+            conn.execute(f"DELETE FROM events WHERE id IN ({deleted_placeholders})", deleted_ids)
+            conn.commit()
+    finally:
+        conn.close()
+
+    deleted_files = _cleanup_unreferenced_files(candidate_files, referenced_files) if delete_files else []
+    missing_ids = [event_id for event_id in ids if event_id not in set(deleted_ids)]
+    return {
+        "deleted": bool(deleted_ids),
+        "deleted_count": len(deleted_ids),
+        "deleted_ids": deleted_ids,
+        "missing_ids": missing_ids,
         "deleted_file_count": len(deleted_files),
         "deleted_files": deleted_files,
     }

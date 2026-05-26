@@ -171,6 +171,11 @@ class EventUpdateRequest(BaseModel):
     note: Optional[str] = None
 
 
+class BulkDeleteRequest(BaseModel):
+    ids: List[str] = Field(default_factory=list, description="要彻底删除的活动 ID 列表")
+    delete_files: bool = Field(True, description="是否删除未被其他活动引用的本地图片文件")
+
+
 class ManualEventRequest(BaseModel):
     mode: str = Field("manual", pattern="^(manual|text|link|image)$")
     pasted_text: str = ""
@@ -947,6 +952,17 @@ async def favorite_stored_event(event_id: str, favorite: bool = True):
     if not event:
         raise HTTPException(status_code=404, detail="事件不存在")
     return EventExtractResponse(success=True, data={"event": event})
+
+
+@router.post("/bulk-delete", response_model=EventExtractResponse, summary="批量彻底删除活动")
+async def bulk_delete_stored_events(req: BulkDeleteRequest):
+    ids = [item.strip() for item in req.ids if str(item or "").strip()]
+    if not ids:
+        raise HTTPException(status_code=400, detail="请选择要删除的活动")
+    result = await run_in_threadpool(event_store.delete_events, ids, req.delete_files)
+    if not result.get("deleted"):
+        raise HTTPException(status_code=404, detail="没有找到可删除的活动")
+    return EventExtractResponse(success=True, data=result)
 
 
 @router.delete("/{event_id}", response_model=EventExtractResponse, summary="彻底删除活动")

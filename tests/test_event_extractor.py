@@ -279,6 +279,44 @@ class EventExtractorTest(unittest.TestCase):
         self.assertIn("BEGIN:VCALENDAR", ics)
         self.assertNotIn("异常日期活动", ics)
 
+    def test_context_supplements_missing_llm_fields(self):
+        import utils.event_extractor as extractor
+
+        compressed = {
+            "title": "活动预告",
+            "full_text": (
+                "活动时间：2026年6月8日 14:00-16:00\n"
+                "活动地点：北京 中关村创业大街路演厅\n"
+                "主办方：未来产业研究院\n"
+                "报名截止：2026年6月6日 24:00\n"
+                "报名链接：https://example.com/register\n"
+                "活动简介：面向 AI 创业团队的融资路演和导师交流活动。"
+            ),
+            "image_ocr": [{
+                "text": "2026 AI 创业路演 北京 中关村创业大街 路演厅 扫码报名",
+            }],
+            "poster_vision": [],
+        }
+
+        events = extractor.supplement_events_from_context([{
+            "title": "2026 AI 创业路演",
+            "start_time": "",
+            "location": "",
+            "organizer": "",
+            "signup_deadline": "",
+            "signup_url": "",
+            "description": "",
+        }], compressed)
+
+        event = events[0]
+        self.assertIn("2026年6月8日", event["start_time"])
+        self.assertIn("中关村创业大街", event["location"])
+        self.assertEqual(event["city"], "北京")
+        self.assertEqual(event["organizer"], "未来产业研究院")
+        self.assertIn("2026年6月6日", event["signup_deadline"])
+        self.assertEqual(event["signup_url"], "https://example.com/register")
+        self.assertIn("融资路演", event["description"])
+
 
 if __name__ == "__main__":
     unittest.main()

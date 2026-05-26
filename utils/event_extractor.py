@@ -103,6 +103,11 @@ TIME_RE = re.compile(
     re.IGNORECASE,
 )
 URL_RE = re.compile(r"https?://[^\s<>\"]+")
+LABEL_VALUE_LIMIT = 120
+REGISTRATION_URL_LABELS = [
+    "报名链接", "报名入口", "报名网址", "报名地址", "注册链接", "注册入口",
+    "参与链接", "活动链接", "详情链接", "链接", "URL", "Registration URL", "Register",
+]
 
 
 @dataclass
@@ -114,7 +119,7 @@ class ExtractConfig:
 
     def __post_init__(self):
         if self.use_vision is None:
-            self.use_vision = _env_bool("MINIMAX_VISION_ENABLED", False)
+            self.use_vision = _env_bool("MINIMAX_VISION_ENABLED", True)
 
 
 def _tz():
@@ -225,6 +230,7 @@ def score_activity_article(article: Dict, compressed: Optional[Dict] = None) -> 
 def compress_article_text(article: Dict, max_chars: int = 9000) -> Dict:
     title = article.get("title", "")
     plain = article.get("plain_content", "") or ""
+    digest = article.get("digest", "") or ""
     parts = re.split(r"\n{1,}|\r\n|。|；|;|(?<=\.)\s+", plain)
     snippets = []
     seen = set()
@@ -252,12 +258,20 @@ def compress_article_text(article: Dict, max_chars: int = 9000) -> Dict:
     if len(compressed) > max_chars:
         compressed = compressed[:max_chars]
 
+    full_text = "\n".join(str(part or "") for part in [title, digest, plain]).strip()
+    if len(full_text) > max_chars:
+        head = full_text[: max_chars // 2]
+        tail = full_text[-max_chars // 3:]
+        full_text = head + "\n...\n" + tail
+
     return {
         "title": title,
+        "digest": digest,
         "account": article.get("account_name", ""),
         "publish_time": article.get("publish_time_iso") or article.get("publish_time", ""),
         "source_url": article.get("link", ""),
         "text": compressed,
+        "full_text": full_text,
         "image_ocr": image_text,
         "image_paths": [
             img.get("path") for img in article.get("images", [])
@@ -475,9 +489,12 @@ def recognize_poster_with_minimax(image_path: str, article: Dict) -> str:
         return ""
 
     prompt = (
-        "请识别这张微信公众号活动海报中的活动信息。"
-        "只返回可见文字摘要，重点包含活动名称、时间、地点、报名方式、主办方。"
-        "如果海报里有日期但没有年份，请结合上下文优先使用 2026 年。"
+        "请高精度识别这张微信公众号活动海报中的可见文字和活动信息。"
+        "请优先提取：活动名称、活动时间、结束时间、报名开始、报名截止、地点/地址、城市、"
+        "主办方/承办方/协办方、嘉宾、报名方式、报名链接/二维码说明、联系人、费用、参会对象。"
+        "如果某个信息在图片中可见但不确定，请标注“疑似”。不要编造不可见信息。"
+        "如果海报里有日期但没有年份，请结合上下文和文章发布时间推断年份，并说明推断依据。"
+        "用简洁中文分行输出。"
     )
     try:
         return understand_image_with_minimax_token_plan(str(path), prompt)
@@ -507,7 +524,12 @@ def enrich_with_poster_vision(article: Dict, compressed: Dict, use_vision: bool)
 
     poster_texts = []
     max_images = int(os.getenv("MINIMAX_VISION_MAX_IMAGES", "5"))
-    for img in article.get("images", [])[:max_images]:
+    images = article.get("images", [])
+    ordered_images = sorted(
+        enumerate(images),
+        key=lambda pair: 0 if is_poster_like_image(pair[1], article) else 1,
+    )
+    for _, img in ordered_images[:max_images]:
         if img.get("ocr") or img.get("ocr_text"):
             continue
         path = img.get("path")
@@ -570,18 +592,26 @@ def _is_valid_raw_event(raw: Dict) -> bool:
 
 def _system_prompt() -> str:
     return (
-        "你是活动信息抽取器。请从微信公众号文章片段中抽取结构化活动。"
-        "一篇文章可能包含多个活动。只输出 JSON，不要解释。"
+        "你是一个高精度活动信息抽取器。请从微信公众号文章、正文片段、全文摘要、OCR 和海报理解结果中抽取结构化活动。"
+        "一篇文章可能包含多个活动；如果文章是活动合集，请分别抽取多个活动。只输出 JSON，不要解释。"
         "如果不是活动或信息不足，输出 {\"events\": []}。"
-        "字段：title, start_time, end_time, location, organizer, signup_deadline, "
+        "字段：title, start_time, end_time, location, city, organizer, signup_deadline, "
         "signup_start_time, signup_url, description, category, confidence, evidence。"
-        "时间尽量使用 ISO 8601；无法确定年份时参考文章发布时间；未知字段用空字符串。"
+        "字段要求："
+        "title 使用活动真实名称，不要简单复制文章标题；"
+        "start_time/end_time 填活动举办时间；signup_start_time/signup_deadline 填报名时间；"
+        "location 填完整地点/线上平台/地址，city 填城市；organizer 填主办/承办/协办单位；"
+        "signup_url 填报名链接、活动链接或可报名页面；"
+        "description 用一句话概括活动对象、主题、嘉宾或亮点；"
+        "evidence 填支持该活动的原文片段。"
+        "时间尽量使用 ISO 8601；无法确定年份时参考 publish_time/source_publish_time；未知字段用空字符串。"
         "如果报名开始/报名截止早于活动开始，也必须保留这些关键时间，便于日历优先显示最早行动时间。"
+        "严禁编造不存在的信息；但只要正文、OCR、poster_vision 中出现，就应尽量填入对应字段。"
     )
 
 
 def extract_with_llm(compressed: Dict) -> List[Dict]:
-    user_payload = json.dumps(compressed, ensure_ascii=False)
+    user_payload = json.dumps(_llm_payload(compressed), ensure_ascii=False)
     content = call_minimax_chat(
         [
             {"role": "system", "content": _system_prompt()},
@@ -594,10 +624,30 @@ def extract_with_llm(compressed: Dict) -> List[Dict]:
     return events if isinstance(events, list) else []
 
 
+def _llm_payload(compressed: Dict) -> Dict:
+    payload = dict(compressed)
+    full_text = str(payload.get("full_text") or "")
+    evidence_text = str(payload.get("text") or "")
+    poster_text = "\n".join(x.get("text", "") for x in payload.get("poster_vision", []))
+    image_text = "\n".join(x.get("text", "") for x in payload.get("image_ocr", []))
+    payload["extraction_priority"] = [
+        "先读 poster_vision 和 image_ocr，它们通常包含海报里的时间、地点、报名方式。",
+        "再读 text/full_text 补齐主办方、介绍、链接和上下文。",
+        "同一字段多处出现时，优先选择更完整、带年份、带地址、带 URL 的版本。",
+    ]
+    payload["combined_context"] = _shorten(
+        "\n".join([evidence_text, poster_text, image_text, full_text]),
+        int(os.getenv("EVENT_LLM_CONTEXT_CHARS", "18000")),
+    )
+    return payload
+
+
 def fallback_extract(compressed: Dict) -> List[Dict]:
     text = "\n".join([
         compressed.get("title", ""),
+        compressed.get("digest", ""),
         compressed.get("text", ""),
+        compressed.get("full_text", ""),
         "\n".join([x.get("text", "") for x in compressed.get("image_ocr", [])]),
         "\n".join([x.get("text", "") for x in compressed.get("poster_vision", [])]),
     ])
@@ -607,11 +657,11 @@ def fallback_extract(compressed: Dict) -> List[Dict]:
 
     date_match = DATE_RE.search(text)
     time_match = TIME_RE.search(text)
-    location = _extract_after_labels(text, ["上课地点", "活动地点", "会议地点", "举办地点", "地点", "地址", "Location", "Venue"])
-    organizer = _extract_after_labels(text, ["主办方", "主办单位", "主办", "Organizer", "Host"])
-    signup_start = _extract_after_labels(text, ["报名开始", "报名时间", "报名日期", "报名开放", "开放报名", "Registration Opens"])
-    deadline = _extract_after_labels(text, ["报名截止", "截止时间", "Deadline"])
-    url_match = URL_RE.search(text)
+    location = _best_labeled_value(text, ["上课地点", "活动地点", "会议地点", "举办地点", "线下地点", "地点", "地址", "Location", "Venue", "Address"])
+    organizer = _best_labeled_value(text, ["主办方", "主办单位", "主办", "承办方", "承办单位", "承办", "协办方", "协办单位", "Organizer", "Host"])
+    signup_start = _best_labeled_value(text, ["报名开始", "报名时间", "报名日期", "报名开放", "开放报名", "Registration Opens", "Registration"])
+    deadline = _best_labeled_value(text, ["报名截止", "截止时间", "截止日期", "报名截止时间", "Deadline", "Application Deadline"])
+    signup_url = _extract_registration_url(text)
 
     title = compressed.get("title", "")
     event = {
@@ -622,11 +672,11 @@ def fallback_extract(compressed: Dict) -> List[Dict]:
         "organizer": organizer,
         "signup_start_time": signup_start,
         "signup_deadline": deadline,
-        "signup_url": url_match.group(0) if url_match else "",
+        "signup_url": signup_url,
         "description": _shorten(text, 800),
         "category": _classify_event(text),
         "confidence": 0.45 if date_match or time_match else 0.3,
-        "evidence": _shorten(compressed.get("text", ""), 500),
+        "evidence": _shorten(text, 500),
     }
     return [event]
 
@@ -658,13 +708,160 @@ def supplement_events_with_fallback(raw_events: List[Dict], fallback_events: Lis
     return merged
 
 
+def supplement_events_from_context(raw_events: List[Dict], compressed: Dict) -> List[Dict]:
+    """Fill missing LLM fields from article text, OCR, and poster vision context."""
+    if not raw_events:
+        return raw_events
+    text = _context_text(compressed)
+    if not text.strip():
+        return raw_events
+
+    context = {
+        "start_time": _extract_start_time(text),
+        "end_time": _best_labeled_value(text, ["结束时间", "活动结束", "End Time"]),
+        "location": _best_labeled_value(text, ["上课地点", "活动地点", "会议地点", "举办地点", "线下地点", "地点", "地址", "Location", "Venue", "Address"]),
+        "city": _extract_city(text),
+        "organizer": _best_labeled_value(text, ["主办方", "主办单位", "主办", "承办方", "承办单位", "承办", "协办方", "协办单位", "Organizer", "Host"]),
+        "signup_start_time": _best_labeled_value(text, ["报名开始", "报名时间", "报名日期", "报名开放", "开放报名", "Registration Opens", "Registration"]),
+        "signup_deadline": _best_labeled_value(text, ["报名截止", "截止时间", "截止日期", "报名截止时间", "Deadline", "Application Deadline"]),
+        "signup_url": _extract_registration_url(text),
+        "description": _shorten(_best_description(text), 500),
+        "evidence": _shorten(_best_evidence(text), 700),
+    }
+    supplemented = []
+    for raw in raw_events:
+        item = dict(raw)
+        for field, value in context.items():
+            if value and not str(item.get(field) or "").strip():
+                item[field] = value
+        if not str(item.get("category") or "").strip():
+            item["category"] = _classify_event(text)
+        supplemented.append(item)
+    return supplemented
+
+
+def _context_text(compressed: Dict) -> str:
+    return "\n".join([
+        compressed.get("title", ""),
+        compressed.get("digest", ""),
+        compressed.get("text", ""),
+        compressed.get("full_text", ""),
+        "\n".join([x.get("text", "") for x in compressed.get("image_ocr", [])]),
+        "\n".join([x.get("text", "") for x in compressed.get("poster_vision", [])]),
+    ])
+
+
 def _extract_after_labels(text: str, labels: List[str]) -> str:
     for label in labels:
-        pattern = re.compile(rf"[【\[]?{re.escape(label)}[】\]]?\s*[:：]?\s*([^\n。；;]{{2,80}})", re.IGNORECASE)
+        pattern = re.compile(rf"[【\[]?{re.escape(label)}[】\]]?\s*[:：]?\s*([^\n。；;]{{2,{LABEL_VALUE_LIMIT}}})", re.IGNORECASE)
         match = pattern.search(text)
         if match:
             return re.sub(r"^[】\]：:\s]+", "", match.group(1)).strip()
     return ""
+
+
+def _best_labeled_value(text: str, labels: List[str]) -> str:
+    candidates = []
+    for label in labels:
+        pattern = re.compile(
+            rf"(?:[【\[]?{re.escape(label)}[】\]]?|{re.escape(label)})\s*[:：]?\s*([^\n。；;]{{2,{LABEL_VALUE_LIMIT}}})",
+            re.IGNORECASE,
+        )
+        for match in pattern.finditer(text or ""):
+            value = _clean_label_value(match.group(1))
+            if value:
+                candidates.append(value)
+    if not candidates:
+        return ""
+    candidates = sorted(set(candidates), key=lambda value: (_field_quality(value), len(value)), reverse=True)
+    return candidates[0]
+
+
+def _clean_label_value(value: str) -> str:
+    value = re.sub(r"^[】\]：:\s]+", "", str(value or "")).strip()
+    value = re.sub(r"^(?:方|单位|时间|日期|地点|地址|链接|入口)\s*[:：]\s*", "", value)
+    value = re.sub(r"\s+", " ", value)
+    value = re.sub(r"(?:更多|详情|扫码|点击).*$", "", value).strip()
+    return value.strip(" ：:，,；;。")
+
+
+def _field_quality(value: str) -> int:
+    score = 0
+    if DATE_RE.search(value):
+        score += 4
+    if TIME_RE.search(value):
+        score += 3
+    if URL_RE.search(value):
+        score += 4
+    if any(city in value for city in ["北京", "上海", "广州", "深圳", "杭州", "南京", "成都", "武汉", "线上", "腾讯会议", "Zoom"]):
+        score += 2
+    if len(value) >= 6:
+        score += 1
+    return score
+
+
+def _extract_registration_url(text: str) -> str:
+    label_value = _best_labeled_value(text, REGISTRATION_URL_LABELS)
+    label_url = URL_RE.search(label_value)
+    if label_url:
+        return label_url.group(0).rstrip("。，；)")
+    urls = [match.group(0).rstrip("。，；)") for match in URL_RE.finditer(text or "")]
+    if not urls:
+        return ""
+    scored = []
+    for url in urls:
+        index = text.find(url)
+        window = text[max(0, index - 80): index + len(url) + 80].lower()
+        score = 0
+        if any(k.lower() in window for k in ["报名", "注册", "参与", "活动", "详情", "register", "registration", "signup", "sign-up"]):
+            score += 5
+        if any(k in url.lower() for k in ["signup", "register", "event", "wjx", "jinshuju", "form", "docs.google", "meeting"]):
+            score += 3
+        scored.append((score, url))
+    scored.sort(reverse=True)
+    return scored[0][1]
+
+
+def _extract_start_time(text: str) -> str:
+    labeled = _best_labeled_value(text, ["活动时间", "举办时间", "会议时间", "讲座时间", "比赛时间", "课程时间", "时间", "Date", "Time"])
+    if labeled and (DATE_RE.search(labeled) or TIME_RE.search(labeled)):
+        return labeled
+    date_match = DATE_RE.search(text or "")
+    time_match = TIME_RE.search(text or "")
+    return " ".join([m.group(0) for m in [date_match, time_match] if m]).strip()
+
+
+def _extract_city(text: str) -> str:
+    cities = [
+        "北京", "上海", "广州", "深圳", "杭州", "南京", "成都", "武汉", "西安", "天津",
+        "重庆", "苏州", "厦门", "长沙", "合肥", "青岛", "香港", "澳门", "线上",
+    ]
+    for city in cities:
+        if city in (text or ""):
+            return city
+    return ""
+
+
+def _best_description(text: str) -> str:
+    for label in ["活动简介", "活动介绍", "项目介绍", "赛事介绍", "讲座简介", "课程介绍", "Description"]:
+        value = _best_labeled_value(text, [label])
+        if value:
+            return value
+    parts = [re.sub(r"\s+", " ", part).strip() for part in re.split(r"\n+|。", text or "")]
+    useful = [
+        part for part in parts
+        if len(part) >= 12 and any(k in part for k in ["活动", "讲座", "论坛", "比赛", "课程", "工作坊", "峰会", "报名"])
+    ]
+    return useful[0] if useful else _shorten(text, 240)
+
+
+def _best_evidence(text: str) -> str:
+    parts = [re.sub(r"\s+", " ", part).strip() for part in re.split(r"\n+|。", text or "")]
+    useful = [
+        part for part in parts
+        if any(k.lower() in part.lower() for k in EVENT_KEYWORDS + EVIDENCE_KEYWORDS) or DATE_RE.search(part)
+    ]
+    return "\n".join(useful[:6]) if useful else _shorten(text, 700)
 
 
 def _shorten(text: str, limit: int) -> str:
@@ -790,12 +987,14 @@ def extract_events_from_archive(input_path: str, config: Optional[ExtractConfig]
                 raw_events = extract_with_llm(compressed)
                 fallback_events = fallback_extract(compressed)
                 raw_events = supplement_events_with_fallback(raw_events, fallback_events)
+                raw_events = supplement_events_from_context(raw_events, compressed)
                 raw_events = [raw for raw in raw_events if _is_valid_raw_event(raw)]
                 method = "minimax"
             except Exception as exc:
                 logger.warning("MiniMax extraction failed, fallback used: %s", exc)
         if not raw_events:
-            raw_events = [raw for raw in fallback_extract(compressed) if _is_valid_raw_event(raw)]
+            raw_events = supplement_events_from_context(fallback_extract(compressed), compressed)
+            raw_events = [raw for raw in raw_events if _is_valid_raw_event(raw)]
 
         for raw in raw_events:
             events.append(normalize_event(raw, article, method))

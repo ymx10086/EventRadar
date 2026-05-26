@@ -193,7 +193,7 @@ class EventAutomation:
             if use_llm is None:
                 use_llm = bool(settings.get("use_llm", _env_bool("EVENT_AUTOMATION_USE_LLM", True)))
             if use_vision is None:
-                use_vision = bool(settings.get("use_vision", _env_bool("EVENT_AUTOMATION_USE_VISION", False)))
+                use_vision = bool(settings.get("use_vision", _env_bool("EVENT_AUTOMATION_USE_VISION", True)))
             if download_images is None:
                 download_images = bool(settings.get("download_images", _env_bool("DAILY_ARCHIVE_DOWNLOAD_IMAGES", True)))
             if lookback_days is None:

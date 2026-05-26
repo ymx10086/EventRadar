@@ -69,6 +69,45 @@ class EventStoreTest(unittest.TestCase):
             finally:
                 event_store.DB_PATH = original_db
 
+    def test_save_events_updates_same_day_event_from_different_daily_articles(self):
+        original_db = event_store.DB_PATH
+        with tempfile.TemporaryDirectory() as tmp:
+            event_store.DB_PATH = Path(tmp) / "events.db"
+            try:
+                event_store.init_db()
+                event_store.save_events([{
+                    "id": "first-daily-post",
+                    "title": "AI 创业营 Demo Day",
+                    "source_article_url": "https://mp.weixin.qq.com/s/day-one",
+                    "source_name": "创业公众号A",
+                    "start_time": "2026-06-18 19:00",
+                    "calendar_time": "2026-06-18 19:00",
+                    "location": "中关村",
+                    "confidence": 0.7,
+                    "extraction_method": "minimax",
+                }])
+                event_store.save_events([{
+                    "id": "second-daily-post",
+                    "title": "AI创业营DemoDay",
+                    "source_article_url": "https://mp.weixin.qq.com/s/day-two",
+                    "source_name": "创业公众号B",
+                    "start_time": "2026-06-18 19:00",
+                    "calendar_time": "2026-06-18 19:00",
+                    "location": "中关村路演厅",
+                    "confidence": 0.95,
+                    "description": "更新后的更完整活动说明",
+                    "extraction_method": "minimax",
+                }])
+
+                events = event_store.list_events(start="2026-06-18", end="2026-06-18", include_ignored=True, limit=10)
+
+                self.assertEqual(len(events), 1)
+                self.assertEqual(events[0]["id"], "first-daily-post")
+                self.assertEqual(events[0]["title"], "AI创业营DemoDay")
+                self.assertEqual(events[0]["description"], "更新后的更完整活动说明")
+            finally:
+                event_store.DB_PATH = original_db
+
     def test_list_events_dedupes_existing_duplicate_rows(self):
         original_db = event_store.DB_PATH
         with tempfile.TemporaryDirectory() as tmp:
@@ -531,6 +570,59 @@ class EventStoreTest(unittest.TestCase):
                 self.assertEqual(result["deleted_id"], "delete-me")
                 self.assertEqual([event["id"] for event in events], ["keep-me"])
                 self.assertFalse(own_image.exists())
+                self.assertTrue(shared_image.exists())
+            finally:
+                event_store.DB_PATH = original_db
+
+    def test_delete_events_removes_multiple_rows_and_orphaned_files(self):
+        original_db = event_store.DB_PATH
+        with tempfile.TemporaryDirectory() as tmp:
+            event_store.DB_PATH = Path(tmp) / "events.db"
+            try:
+                event_store.init_db()
+                first_image = Path(tmp) / "owned" / "first.jpg"
+                second_image = Path(tmp) / "owned" / "second.jpg"
+                shared_image = Path(tmp) / "shared" / "poster.jpg"
+                for path, text in [
+                    (first_image, "first"),
+                    (second_image, "second"),
+                    (shared_image, "shared"),
+                ]:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text(text, encoding="utf-8")
+                event_store.save_events([
+                    {
+                        "id": "delete-one",
+                        "title": "删除一",
+                        "calendar_time": "2026-05-20",
+                        "start_time": "2026-05-20",
+                        "image_paths": [str(first_image), str(shared_image)],
+                    },
+                    {
+                        "id": "delete-two",
+                        "title": "删除二",
+                        "calendar_time": "2026-05-21",
+                        "start_time": "2026-05-21",
+                        "image_paths": [str(second_image)],
+                    },
+                    {
+                        "id": "keep-me",
+                        "title": "保留",
+                        "calendar_time": "2026-05-22",
+                        "start_time": "2026-05-22",
+                        "image_paths": [str(shared_image)],
+                    },
+                ])
+
+                result = event_store.delete_events(["delete-one", "delete-two", "missing"])
+                events = event_store.list_events(include_ignored=True, limit=10)
+
+                self.assertTrue(result["deleted"])
+                self.assertEqual(set(result["deleted_ids"]), {"delete-one", "delete-two"})
+                self.assertEqual(result["missing_ids"], ["missing"])
+                self.assertEqual([event["id"] for event in events], ["keep-me"])
+                self.assertFalse(first_image.exists())
+                self.assertFalse(second_image.exists())
                 self.assertTrue(shared_image.exists())
             finally:
                 event_store.DB_PATH = original_db

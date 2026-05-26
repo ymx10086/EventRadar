@@ -23,10 +23,12 @@
     --app-radius-lg: 12px;
     --app-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
     --app-shadow-pop: 0 18px 60px rgba(15, 23, 42, 0.18);
-    --app-sidebar: 212px;
-    --app-right: 300px;
+    --app-sidebar: 238px;
+    --app-right: 280px;
     --app-top: 56px;
     --app-gap: 12px;
+    --app-page-pad: 14px;
+    --app-frame-height: calc(100dvh - (var(--app-page-pad) * 2));
 }
 
 html,
@@ -56,23 +58,23 @@ button,
 body {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif !important;
-    font-size: 14px;
+    font-size: 13px;
     letter-spacing: 0;
 }
 
 button,
 .btn,
 .nav-item {
-    min-height: 32px !important;
-    padding: 6px 10px !important;
+    min-height: 30px !important;
+    padding: 5px 9px !important;
     border: 1px solid var(--app-border) !important;
     border-radius: var(--app-radius-sm) !important;
     background: var(--app-surface) !important;
     color: var(--app-text-2) !important;
     box-shadow: none !important;
-    font-size: 13px !important;
+    font-size: 12.5px !important;
     font-weight: 600 !important;
-    line-height: 18px !important;
+    line-height: 17px !important;
     text-decoration: none;
     white-space: nowrap;
     transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
@@ -132,17 +134,17 @@ button.primary:hover,
 input,
 select,
 textarea {
-    min-height: 32px !important;
+    min-height: 30px !important;
     border: 1px solid var(--app-border) !important;
     border-radius: var(--app-radius-sm) !important;
     background: var(--app-surface) !important;
     color: var(--app-text) !important;
-    font-size: 13px !important;
+    font-size: 12.5px !important;
 }
 
 label {
     color: var(--app-muted) !important;
-    font-size: 12px !important;
+    font-size: 11.5px !important;
     font-weight: 600 !important;
 }
 
@@ -151,23 +153,25 @@ label {
     max-width: 1440px !important;
     min-height: 100dvh;
     margin: 0 auto !important;
-    padding: 14px !important;
+    padding: var(--app-page-pad) !important;
     display: grid !important;
     grid-template-columns: var(--app-sidebar) minmax(0, 1fr) var(--app-right) !important;
     gap: var(--app-gap) !important;
-    align-items: start !important;
+    align-items: stretch !important;
 }
 
 .product-nav,
 .right-rail {
     position: sticky !important;
-    top: 14px !important;
-    max-height: calc(100dvh - 28px);
+    top: var(--app-page-pad) !important;
+    height: var(--app-frame-height) !important;
+    min-height: var(--app-frame-height) !important;
+    max-height: var(--app-frame-height) !important;
     overflow: auto;
 }
 
 .product-nav {
-    min-height: calc(100dvh - 28px) !important;
+    min-height: var(--app-frame-height) !important;
     display: flex !important;
     flex-direction: column !important;
     gap: 12px !important;
@@ -180,12 +184,12 @@ label {
 
 .events-workbench .product-nav {
     position: sticky !important;
-    top: 14px !important;
+    top: var(--app-page-pad) !important;
     z-index: 20 !important;
     width: auto !important;
-    height: auto !important;
-    min-height: calc(100dvh - 28px) !important;
-    max-height: calc(100dvh - 28px) !important;
+    height: var(--app-frame-height) !important;
+    min-height: var(--app-frame-height) !important;
+    max-height: var(--app-frame-height) !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: stretch !important;
@@ -196,11 +200,12 @@ label {
 
 .nav-brand {
     display: grid !important;
-    grid-template-columns: 36px minmax(0, 1fr) !important;
-    gap: 9px !important;
+    grid-template-columns: 1fr !important;
+    gap: 6px !important;
     align-items: center !important;
+    justify-items: stretch !important;
     min-width: 0;
-    padding: 0 0 10px !important;
+    padding: 2px 0 12px !important;
     border-bottom: 1px solid var(--app-border);
 }
 
@@ -213,27 +218,44 @@ label {
 }
 
 .nav-brand .brand-logo {
-    width: 36px !important;
-    height: 36px !important;
-    border-radius: 9px !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: 72px !important;
+    border-radius: 10px !important;
     object-fit: contain;
+    object-position: left center;
     box-shadow: none !important;
 }
 
+.nav-brand > div {
+    display: grid;
+    gap: 1px;
+    min-width: 0;
+}
+
 .nav-brand strong {
+    display: block;
+    overflow: hidden;
     color: var(--app-text) !important;
-    font-size: 14px !important;
-    line-height: 18px;
+    font-size: 15px !important;
+    line-height: 20px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .nav-brand span {
+    display: block;
+    overflow: hidden;
     color: var(--app-muted) !important;
-    font-size: 12px !important;
+    font-size: 12.5px !important;
+    line-height: 17px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .nav-list {
     display: grid !important;
-    gap: 4px !important;
+    gap: 3px !important;
     min-width: 0;
 }
 
@@ -241,7 +263,7 @@ label {
     display: grid !important;
     grid-template-columns: 1fr !important;
     flex: 0 0 auto !important;
-    gap: 4px !important;
+    gap: 3px !important;
     overflow: visible !important;
 }
 
@@ -289,8 +311,19 @@ label {
     justify-content: center !important;
 }
 
+.rail-card:last-child {
+    display: grid !important;
+    grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.rail-card:last-child .rail-button-stack {
+    align-content: start;
+}
+
 .product-main {
     min-width: 0;
+    height: var(--app-frame-height) !important;
+    min-height: var(--app-frame-height) !important;
     display: grid !important;
     gap: 12px !important;
 }
@@ -305,22 +338,27 @@ label {
     display: grid !important;
     gap: 12px !important;
     min-width: 0;
+    height: 100% !important;
+    min-height: 0 !important;
 }
 
 .right-rail {
     display: grid !important;
     gap: 10px !important;
+    grid-template-rows: minmax(0, 1.05fr) auto minmax(0, 0.95fr);
+    align-content: stretch;
 }
 
 .events-workbench .right-rail {
     display: grid !important;
     position: sticky !important;
-    top: 14px !important;
-    max-height: calc(100dvh - 28px) !important;
+    top: var(--app-page-pad) !important;
+    height: var(--app-frame-height) !important;
+    min-height: var(--app-frame-height) !important;
+    max-height: var(--app-frame-height) !important;
     overflow: auto !important;
 }
 
-.workbench-header,
 .metric-strip,
 .calendar-workspace,
 .rail-card,
@@ -332,15 +370,6 @@ label {
     box-shadow: none !important;
 }
 
-.workbench-header {
-    min-height: auto !important;
-    display: grid !important;
-    grid-template-columns: minmax(0, 1fr) auto !important;
-    gap: 12px !important;
-    align-items: center !important;
-    padding: 12px 14px !important;
-}
-
 .eyebrow {
     margin: 0 0 2px !important;
     color: var(--app-primary) !important;
@@ -350,15 +379,6 @@ label {
     text-transform: none !important;
 }
 
-.workbench-header h1 {
-    margin: 0 !important;
-    color: var(--app-text) !important;
-    font-size: 20px !important;
-    line-height: 26px !important;
-    font-weight: 700 !important;
-    letter-spacing: 0 !important;
-}
-
 .workbench-subtitle,
 .mode-description {
     color: var(--app-muted) !important;
@@ -366,7 +386,6 @@ label {
     line-height: 18px !important;
 }
 
-.workbench-actions,
 .row-actions,
 .calendar-nav,
 .card-actions {
@@ -376,15 +395,6 @@ label {
     gap: 6px !important;
     justify-content: flex-end !important;
     min-width: 0;
-}
-
-.workbench-actions {
-    display: grid !important;
-    grid-template-columns: repeat(3, minmax(86px, 1fr));
-}
-
-.workbench-actions > * {
-    width: 100%;
 }
 
 .metric-strip,
@@ -407,6 +417,19 @@ label {
     box-shadow: none !important;
 }
 
+.rail-stats,
+.events-workbench .rail-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+    margin: 8px 0 10px !important;
+}
+
+.rail-stats .stat {
+    min-height: 64px !important;
+    padding: 8px !important;
+    background: #fbfcfe !important;
+}
+
 .stat .k {
     color: var(--app-muted) !important;
     font-size: 12px !important;
@@ -419,16 +442,31 @@ label {
     line-height: 28px !important;
 }
 
+.rail-stats .stat .v {
+    font-size: 20px !important;
+    line-height: 23px !important;
+}
+
 .stat p {
     margin-top: 2px !important;
     color: var(--app-muted) !important;
     font-size: 12px !important;
 }
 
+.rail-stats .stat p {
+    margin: 0 !important;
+    font-size: 11px !important;
+    line-height: 15px !important;
+}
+
 .calendar-workspace {
     position: relative !important;
     min-width: 0;
-    padding: 12px !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    display: grid !important;
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+    padding: 10px !important;
     overflow: hidden !important;
 }
 
@@ -437,19 +475,19 @@ label {
 }
 
 .calendar-head {
-    min-height: 44px;
+    min-height: 38px;
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) auto !important;
     gap: 10px !important;
     align-items: center !important;
-    margin: 0 0 10px !important;
+    margin: 0 0 8px !important;
     padding: 0 !important;
 }
 
 .calendar-title {
     color: var(--app-text) !important;
-    font-size: 20px !important;
-    line-height: 24px !important;
+    font-size: 18px !important;
+    line-height: 22px !important;
     font-weight: 700 !important;
 }
 
@@ -490,23 +528,23 @@ label {
 }
 
 .calendar-filters {
-    margin: 0 0 10px !important;
+    margin: 0 0 8px !important;
     border: 1px solid var(--app-border) !important;
     border-radius: var(--app-radius) !important;
     background: #fbfcfe !important;
 }
 
 .calendar-filters summary {
-    min-height: 34px;
-    padding: 7px 10px !important;
+    min-height: 30px;
+    padding: 6px 9px !important;
     color: var(--app-text-2) !important;
-    font-size: 13px !important;
+    font-size: 12.5px !important;
 }
 
 .filter-bar {
     grid-template-columns: 180px 128px 128px 128px minmax(160px, 1fr) 112px auto auto !important;
-    gap: 8px !important;
-    padding: 10px !important;
+    gap: 6px !important;
+    padding: 8px !important;
     align-items: end !important;
 }
 
@@ -520,7 +558,9 @@ label {
 
 .calendar-root {
     min-width: 0;
-    min-height: 560px !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    overflow: auto !important;
 }
 
 .calendar-grid {
@@ -535,18 +575,18 @@ label {
 }
 
 .weekday {
-    min-height: 30px !important;
-    padding: 7px 6px !important;
+    min-height: 26px !important;
+    padding: 5px 6px !important;
     border-color: var(--app-border) !important;
     background: #f8fafc !important;
     color: var(--app-muted) !important;
-    font-size: 12px !important;
+    font-size: 11.5px !important;
     font-weight: 600 !important;
 }
 
 .day {
-    min-height: 112px !important;
-    padding: 6px !important;
+    min-height: 92px !important;
+    padding: 5px !important;
     border-color: var(--app-border) !important;
     background: var(--app-surface) !important;
     overflow: hidden !important;
@@ -562,20 +602,20 @@ label {
 }
 
 .day-num {
-    margin: 0 0 5px !important;
+    margin: 0 0 4px !important;
     color: var(--app-muted) !important;
-    font-size: 11.5px !important;
-    line-height: 16px !important;
+    font-size: 11px !important;
+    line-height: 15px !important;
 }
 
 .event-pill {
-    min-height: 20px !important;
-    margin-bottom: 4px !important;
-    padding: 3px 5px !important;
+    min-height: 18px !important;
+    margin-bottom: 3px !important;
+    padding: 2px 5px !important;
     border-radius: 5px !important;
     color: var(--app-text) !important;
     background: #eef4ff !important;
-    font-size: 11px !important;
+    font-size: 10.5px !important;
     line-height: 14px !important;
     box-shadow: none !important;
 }
@@ -596,10 +636,54 @@ label {
     background: #f1f5f9 !important;
 }
 
+.bulk-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    margin: 0 0 10px;
+    padding: 8px 10px;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius);
+    background: #fbfcfe;
+}
+
+.bulk-toolbar strong {
+    display: block;
+    color: var(--app-text);
+    font-size: 13px;
+    line-height: 18px;
+}
+
+.bulk-toolbar span {
+    color: var(--app-muted);
+    font-size: 12px;
+    line-height: 16px;
+}
+
+.bulk-toolbar.has-selection {
+    border-color: #cfe0ff;
+    background: var(--app-primary-soft);
+}
+
+.bulk-actions {
+    flex-wrap: nowrap !important;
+}
+
 .more-pill,
 .day-more {
     color: var(--app-muted) !important;
     font-size: 11px !important;
+}
+
+.day-more {
+    width: 100%;
+    justify-content: center !important;
+}
+
+.day-count {
+    color: var(--app-primary);
+    font-variant-numeric: tabular-nums;
 }
 
 .cards-view {
@@ -616,10 +700,10 @@ label {
 }
 
 .list-view .event-card {
-    min-height: 72px !important;
-    max-height: 72px !important;
+    min-height: 82px !important;
+    max-height: none !important;
     grid-template-columns: 70px minmax(0, 1.25fr) minmax(0, 1fr) auto !important;
-    grid-template-rows: 20px 24px !important;
+    grid-template-rows: 22px 30px !important;
     gap: 4px 10px !important;
     align-items: center !important;
     padding: 10px 12px !important;
@@ -665,18 +749,19 @@ label {
 .list-view .event-card .card-actions {
     grid-column: 4;
     grid-row: 1 / span 2;
+    min-width: 220px;
     justify-content: flex-end !important;
 }
 
 .event-card {
     min-width: 0 !important;
-    min-height: 188px !important;
-    max-height: 188px !important;
+    min-height: 178px !important;
+    max-height: none !important;
     display: grid !important;
-    grid-template-rows: 20px 38px 26px 20px 30px 28px !important;
-    gap: 5px !important;
-    padding: 11px !important;
-    overflow: hidden !important;
+    grid-template-rows: auto auto auto minmax(0, 1fr) 30px !important;
+    gap: 6px !important;
+    padding: 10px !important;
+    overflow: clip !important;
     border: 1px solid var(--app-border) !important;
     border-radius: var(--app-radius) !important;
     background: var(--app-surface) !important;
@@ -697,7 +782,16 @@ label {
     min-width: 0;
 }
 
+.event-card-badges {
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    overflow: hidden;
+}
+
 .event-card-top {
+    min-height: 20px;
     display: flex !important;
     flex-direction: row !important;
     align-items: center !important;
@@ -739,8 +833,8 @@ label {
 }
 
 .tags {
-    min-height: 20px !important;
-    max-height: 20px !important;
+    min-height: 18px !important;
+    max-height: 18px !important;
     display: flex !important;
     flex-wrap: nowrap !important;
     gap: 4px !important;
@@ -763,7 +857,13 @@ label {
 .level-A,
 .level-B,
 .level-C {
-    min-width: auto !important;
+    width: 20px !important;
+    min-width: 20px !important;
+    max-width: 20px !important;
+    min-height: 18px !important;
+    padding: 1px 0 !important;
+    text-align: center !important;
+    flex: 0 0 auto;
     color: var(--app-text) !important;
 }
 
@@ -798,9 +898,35 @@ label {
     color: #991b1b !important;
 }
 
+.event-card-state {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    justify-content: flex-end;
+    min-width: 0;
+}
+
+.event-select {
+    display: inline-flex !important;
+    gap: 4px;
+    align-items: center;
+    min-width: 0;
+    color: var(--app-muted) !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    cursor: pointer;
+}
+
+.event-select input {
+    width: 14px;
+    height: 14px;
+    min-height: 14px !important;
+    margin: 0;
+}
+
 .reason {
-    min-height: 30px !important;
-    max-height: 30px !important;
+    min-height: 0 !important;
+    max-height: 34px !important;
     padding: 3px 6px !important;
     overflow: hidden !important;
     display: -webkit-box !important;
@@ -814,19 +940,28 @@ label {
 }
 
 .card-actions {
-    display: flex !important;
-    flex-wrap: nowrap !important;
+    min-height: 30px !important;
+    display: grid !important;
+    grid-template-columns: 1fr 0.8fr 1fr !important;
+    align-items: end !important;
     justify-content: flex-start !important;
     gap: 5px !important;
-    overflow: hidden !important;
+    overflow: visible !important;
 }
 
 .card-actions .mini,
 .card-actions .btn {
+    width: 100% !important;
+    min-width: 0 !important;
     min-height: 28px !important;
     height: 28px !important;
-    padding: 4px 7px !important;
-    font-size: 11px !important;
+    padding: 4px 6px !important;
+    font-size: 10.5px !important;
+    line-height: 18px !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
 }
 
 .primary-soft {
@@ -836,41 +971,44 @@ label {
 }
 
 .rail-card {
-    padding: 12px !important;
+    min-height: 0;
+    padding: 10px !important;
+    overflow: hidden;
 }
 
 .rail-card h2 {
-    margin: 0 0 8px !important;
-    font-size: 14px !important;
-    line-height: 20px;
+    margin: 0 0 6px !important;
+    font-size: 13.5px !important;
+    line-height: 18px;
 }
 
-.summary-stack,
 .up-next-list {
     display: grid;
-    gap: 6px;
+    gap: 5px;
+    min-height: 0;
+    overflow: auto;
 }
 
-.summary-item,
 .up-next-item {
     min-width: 0;
-    padding: 8px !important;
+    min-height: 34px !important;
+    padding: 6px !important;
     border: 1px solid var(--app-border) !important;
     border-radius: var(--app-radius-sm) !important;
     background: #fbfcfe !important;
 }
 
-.summary-item {
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
-}
-
 .up-next-item {
     width: 100%;
     display: grid !important;
-    grid-template-columns: 42px minmax(0, 1fr);
+    grid-template-columns: 38px minmax(0, 1fr);
     text-align: left;
+}
+
+.up-next-item span,
+.up-next-item strong {
+    font-size: 11.5px !important;
+    line-height: 16px !important;
 }
 
 .up-next-item strong {
@@ -920,6 +1058,36 @@ label {
     max-height: calc(100dvh - 32px) !important;
 }
 
+.event-detail-backdrop {
+    background: rgba(15, 23, 42, 0.28) !important;
+    backdrop-filter: blur(8px);
+}
+
+.event-detail-panel {
+    width: min(620px, calc(100vw - 32px)) !important;
+    border: 1px solid rgba(15, 23, 42, 0.08) !important;
+    background: #f8fafc !important;
+    overflow: hidden !important;
+}
+
+.detail-drawer-head {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: rgba(255, 255, 255, 0.9) !important;
+    backdrop-filter: blur(14px);
+}
+
+.detail-drawer-head h2 {
+    margin: 2px 0 0 !important;
+    font-size: 17px !important;
+    line-height: 22px !important;
+}
+
+.detail-close {
+    min-width: 52px;
+}
+
 .modal-head {
     min-height: 52px;
     padding: 12px 14px !important;
@@ -932,6 +1100,175 @@ label {
 
 .modal-body {
     padding: 14px !important;
+}
+
+.event-detail-body {
+    height: calc(100dvh - 86px);
+    max-height: calc(100dvh - 86px);
+    padding: 12px !important;
+    display: grid !important;
+    align-content: start;
+    gap: 12px;
+    overflow-y: auto !important;
+}
+
+.detail-hero,
+.detail-section {
+    min-width: 0;
+    padding: 14px !important;
+    border: 1px solid var(--app-border) !important;
+    border-radius: var(--app-radius-lg) !important;
+    background: var(--app-surface) !important;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04) !important;
+}
+
+.detail-hero {
+    display: grid;
+    gap: 10px;
+    background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%) !important;
+}
+
+.detail-title-block {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+}
+
+.detail-title-input {
+    min-height: 48px !important;
+    padding: 9px 10px !important;
+    border-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: var(--app-text) !important;
+    font-size: 19px !important;
+    line-height: 26px !important;
+    font-weight: 700 !important;
+}
+
+.detail-title-input:focus {
+    border-color: rgba(37, 99, 235, 0.45) !important;
+    background: #fff !important;
+}
+
+.detail-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-width: 0;
+}
+
+.detail-summary span {
+    max-width: 100%;
+    min-height: 24px;
+    padding: 4px 8px;
+    overflow: hidden;
+    border: 1px solid var(--app-border);
+    border-radius: 999px;
+    background: #f8fafc;
+    color: var(--app-text-2);
+    font-size: 12px;
+    line-height: 16px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.detail-duplicate {
+    margin: 0 !important;
+}
+
+.detail-section {
+    display: grid;
+    gap: 12px;
+}
+
+.detail-section-head {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.detail-section-head h3 {
+    margin: 0 !important;
+    color: var(--app-text) !important;
+    font-size: 14px !important;
+    line-height: 20px !important;
+    font-weight: 700 !important;
+}
+
+.detail-section-head p {
+    margin: 0 !important;
+    color: var(--app-muted) !important;
+    font-size: 12px !important;
+    line-height: 17px !important;
+}
+
+.detail-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 12px;
+    min-width: 0;
+}
+
+.detail-form-grid .field {
+    margin: 0 !important;
+}
+
+.detail-wide {
+    grid-column: 1 / -1;
+}
+
+.event-detail-body input,
+.event-detail-body select,
+.event-detail-body textarea {
+    width: 100%;
+    min-width: 0;
+}
+
+.detail-textarea {
+    min-height: 138px !important;
+    max-height: 260px;
+    padding: 9px 10px !important;
+    resize: vertical;
+    line-height: 1.55 !important;
+}
+
+.detail-textarea.compact {
+    min-height: 78px !important;
+}
+
+.detail-source {
+    margin-bottom: 0 !important;
+}
+
+.detail-source-link {
+    width: fit-content;
+    max-width: 100%;
+}
+
+.detail-footer {
+    position: sticky;
+    bottom: -12px;
+    z-index: 2;
+    margin: 0 -12px -12px;
+    padding: 10px 12px 12px;
+    border-top: 1px solid var(--app-border);
+    background: rgba(248, 250, 252, 0.92);
+    backdrop-filter: blur(14px);
+}
+
+.detail-actions {
+    justify-content: space-between !important;
+}
+
+.detail-actions button {
+    flex: 1 1 0;
+}
+
+.detail-status {
+    min-height: 16px;
+    margin-top: 6px !important;
+    text-align: center;
 }
 
 .grid2 {
@@ -1254,6 +1591,14 @@ label {
         display: none !important;
     }
 
+    .product-main,
+    .app-view.active,
+    .product-page.active,
+    .calendar-workspace {
+        min-height: var(--app-frame-height) !important;
+        height: var(--app-frame-height) !important;
+    }
+
     .filter-bar {
         grid-template-columns: repeat(3, minmax(0, 1fr)) auto auto !important;
     }
@@ -1263,6 +1608,15 @@ label {
     .events-workbench {
         grid-template-columns: minmax(0, 1fr) !important;
         padding: 10px !important;
+        align-items: start !important;
+    }
+
+    .product-main,
+    .app-view.active,
+    .product-page.active,
+    .calendar-workspace {
+        min-height: auto !important;
+        height: auto !important;
     }
 
     .product-nav,
@@ -1272,6 +1626,7 @@ label {
         z-index: 30;
         min-height: auto !important;
         max-height: none;
+        height: auto !important;
         flex-direction: row !important;
         align-items: center !important;
         overflow-x: auto;
@@ -1302,12 +1657,14 @@ label {
         display: none !important;
     }
 
-    .workbench-header,
     .calendar-head {
         grid-template-columns: 1fr !important;
     }
 
-    .workbench-actions,
+    .bulk-toolbar {
+        grid-template-columns: 1fr;
+    }
+
     .calendar-nav {
         justify-content: flex-start !important;
     }
@@ -1325,8 +1682,8 @@ label {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
-    .metric-strip,
-    .stats {
+    .product-main .metric-strip,
+    .product-main .stats {
         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     }
 }
@@ -1360,21 +1717,8 @@ label {
         height: 32px !important;
     }
 
-    .workbench-header {
-        padding: 10px !important;
-    }
-
-    .workbench-actions {
-        display: grid !important;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    .workbench-actions > * {
-        width: 100%;
-    }
-
-    .metric-strip,
-    .stats {
+    .product-main .metric-strip,
+    .product-main .stats {
         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     }
 
@@ -1396,6 +1740,7 @@ label {
 
     .calendar-root {
         min-height: 420px !important;
+        height: auto !important;
     }
 
     .calendar-grid {
@@ -1427,16 +1772,16 @@ label {
     }
 
     .event-card {
-        min-height: 196px !important;
-        max-height: 196px !important;
-        grid-template-rows: 20px 38px 32px 20px 30px 28px !important;
+        min-height: 186px !important;
+        max-height: none !important;
+        grid-template-rows: auto auto auto minmax(0, 1fr) auto !important;
     }
 
     .list-view .event-card {
-        min-height: 156px !important;
-        max-height: 156px !important;
+        min-height: 184px !important;
+        max-height: none !important;
         grid-template-columns: 1fr !important;
-        grid-template-rows: 20px 36px 32px 22px 24px !important;
+        grid-template-rows: auto auto auto auto auto !important;
         gap: 5px !important;
     }
 
@@ -1451,7 +1796,7 @@ label {
     }
 
     .list-view .event-card .card-actions {
-        display: none !important;
+        display: grid !important;
     }
 
     .event-meta {
@@ -1465,7 +1810,7 @@ label {
 
     .card-actions {
         display: grid !important;
-        grid-template-columns: 1fr 0.85fr 1fr;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
     }
 
     .drawer-backdrop {
@@ -1479,6 +1824,31 @@ label {
         height: auto !important;
         max-height: 92dvh !important;
         border-radius: 12px 12px 8px 8px !important;
+    }
+
+    .event-detail-panel {
+        width: calc(100vw - 16px) !important;
+        max-height: 92dvh !important;
+    }
+
+    .event-detail-body {
+        height: auto;
+        max-height: calc(92dvh - 54px);
+    }
+
+    .detail-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .detail-title-input {
+        min-height: 42px !important;
+        font-size: 17px !important;
+        line-height: 23px !important;
+    }
+
+    .detail-actions {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
     }
 
     .grid2 {

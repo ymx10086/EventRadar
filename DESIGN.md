@@ -27,22 +27,32 @@ EventRadar is a mature calendar and activity inbox product. It should feel close
 ## Typography
 
 - Font stack: `-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", sans-serif`.
-- Page title: 20-24px inside app surfaces.
+- Type scale tokens:
+  - `--app-font-xs: 11px` for dense metadata and tiny counters.
+  - `--app-font-sm: 12px` for badges, button labels, and helper text.
+  - `--app-font-base: 13px` for default app body text.
+  - `--app-font-md: 14px` for readable form body text.
+  - `--app-font-lg: 16px` for section headings.
+  - `--app-font-xl: 20px` for page-level titles inside app surfaces.
+- Page title: 18-22px inside app surfaces.
 - Section title: 14-16px.
 - Body text: 13-14px.
 - Meta text: 11-12px.
 - Letter spacing must stay `0`.
+- Avoid viewport-scaled font sizes. Responsive behavior should come from layout, not shrinking text until it becomes unreadable.
 
 ## Spacing
 
 Use an 8px spacing system:
 
-- 4px: tiny inline gaps.
-- 8px: compact control gaps.
-- 12px: card internals and app shell gaps.
-- 16px: dense page padding.
-- 24px: large page spacing only when truly needed.
+- `--app-space-1: 4px`: tiny inline gaps.
+- `--app-space-2: 8px`: compact control gaps.
+- `--app-space-3: 12px`: card internals and app shell gaps.
+- `--app-space-4: 16px`: dense page padding.
+- `--app-space-5: 24px`: large page spacing only when truly needed.
 - 32px: page-level breathing room.
+- Do not use negative margins for app layout.
+- Prefer `gap` over ad hoc margins for repeated card, toolbar, and form layouts.
 
 ## Cards
 
@@ -58,10 +68,14 @@ Use an 8px spacing system:
 - Primary button: one clear action per surface.
 - Secondary button: neutral border and white background.
 - Ghost button: quiet navigation or utility action.
-- Normal button height: 32-36px.
-- Small button height: 28-32px.
+- Button scale tokens:
+  - `--app-button-sm: 28px` for dense calendar and card actions.
+  - `--app-button: 30px` for default desktop toolbar actions.
+  - `--app-button-lg: 36px` for forms and primary modal actions.
 - Calendar navigation uses compact buttons or icon buttons.
 - Buttons must wrap safely on mobile and never overlap.
+- Icon-only buttons must have an accessible label.
+- Avoid large buttons for secondary actions such as previous, next, refresh, export, or settings.
 
 ## Badges
 
@@ -86,6 +100,13 @@ Badges should be pill-shaped, subtle, and compact.
 - Avoid masonry layouts.
 - Left and right rails may be sticky, but each must have independent scroll and should not force the main content height.
 - Month calendar is the default center of gravity. Filters and actions must be compact.
+- Breakpoints:
+  - `>= 1200px`: full app shell with left nav, central calendar, right rail.
+  - `901px - 1199px`: left nav plus main content; right rail moves below the main content.
+  - `641px - 900px`: top compact nav, single main column, right rail below in two columns.
+  - `<= 640px`: single column, toolbar wraps, right rail one column.
+- App surfaces should use height tokens instead of fixed magic numbers where possible.
+- If a row cannot fit in a medium-width app window, wrap the toolbar before shrinking text below the type scale.
 
 ## Modals And Drawers
 
@@ -94,6 +115,12 @@ Badges should be pill-shaped, subtle, and compact.
 - Panel width should be constrained with `min()`.
 - Modal max height: 90vh.
 - Long modal content scrolls inside the modal body.
+- Z-index scale:
+  - `--app-z-nav: 20`
+  - `--app-z-sticky: 30`
+  - `--app-z-overlay: 1000`
+  - `--app-z-popover: 1100`
+- Do not add new always-visible forms to the main calendar page. Add an entry point and show the form in a modal or drawer.
 
 ## Empty, Loading, Error
 
@@ -112,5 +139,10 @@ Badges should be pill-shaped, subtle, and compact.
 ## Current Production Layer
 
 - `static/css/events-app.css` is the production style layer for `static/events.html`.
+- `static/js/events-app.js` is the production behavior layer for `static/events.html`.
 - Keep the events page styling in this file so future edits do not create competing CSS layers.
 - Avoid reintroducing page-level inline CSS unless the rule is truly critical and cannot live in the stylesheet.
+- Prefer `data-action` event binding over inline `onclick`.
+- New static controls should be wired in `bindStaticActions()`.
+- Dynamic cards may use generated action attributes, but should not reintroduce broad inline script blocks.
+- `!important` is allowed only while overriding legacy styles. When touching a selector, first check whether specificity or stale legacy CSS can be reduced instead.

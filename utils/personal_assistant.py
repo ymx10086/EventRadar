@@ -7,6 +7,7 @@ Personal activity assistant configuration and event normalization helpers.
 import hashlib
 import json
 import os
+import re
 import time
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -22,12 +23,24 @@ LINK_SOURCES_FILE = DATA_DIR / "link_sources.json"
 
 
 DEFAULT_PROFILE = {
+    "display_name": "",
     "identity": "学生",
     "profession": "",
+    "organization": "",
     "research_direction": "",
+    "goals": "",
     "interests": ["创新创业", "AI", "竞赛", "讲座"],
     "priority_keywords": ["创新创业", "AI", "人工智能", "创业", "竞赛", "路演", "报名"],
+    "preferred_event_types": ["讲座", "论坛", "竞赛", "路演"],
+    "preferred_cities": [],
+    "preferred_formats": ["线下", "线上"],
+    "language_preferences": ["中文"],
+    "availability": [],
+    "time_preference": "",
+    "max_fee": "",
+    "recommendation_focus": ["相关度", "报名截止", "地点明确"],
     "avoid_topics": [],
+    "notes": "",
 }
 
 DEFAULT_SETTINGS = {
@@ -74,20 +87,55 @@ def _write_json(path: Path, payload):
 def get_profile() -> Dict:
     profile = _read_json(PROFILE_FILE, DEFAULT_PROFILE)
     merged = {**DEFAULT_PROFILE, **profile}
-    for key in ["interests", "priority_keywords", "avoid_topics"]:
-        value = merged.get(key)
-        if isinstance(value, str):
-            merged[key] = [item.strip() for item in value.replace("，", ",").split(",") if item.strip()]
-        elif not isinstance(value, list):
-            merged[key] = []
+    for key in _profile_list_fields():
+        merged[key] = _list_from_value(merged.get(key))
+    for key in _profile_string_fields():
+        merged[key] = str(merged.get(key) or "").strip()
     return merged
 
 
 def save_profile(profile: Dict) -> Dict:
     current = get_profile()
-    current.update({k: v for k, v in profile.items() if k in DEFAULT_PROFILE})
+    for key, value in profile.items():
+        if key not in DEFAULT_PROFILE:
+            continue
+        current[key] = _list_from_value(value) if key in _profile_list_fields() else str(value or "").strip()
     _write_json(PROFILE_FILE, current)
     return get_profile()
+
+
+def _profile_list_fields() -> List[str]:
+    return [
+        "interests",
+        "priority_keywords",
+        "preferred_event_types",
+        "preferred_cities",
+        "preferred_formats",
+        "language_preferences",
+        "availability",
+        "recommendation_focus",
+        "avoid_topics",
+    ]
+
+
+def _profile_string_fields() -> List[str]:
+    return [key for key in DEFAULT_PROFILE if key not in _profile_list_fields()]
+
+
+def _list_from_value(value) -> List[str]:
+    if isinstance(value, list):
+        raw_items = value
+    else:
+        raw_items = re.split(r"[\n,，、;；]+", str(value or ""))
+    seen = set()
+    items = []
+    for item in raw_items:
+        text = str(item or "").strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        items.append(text)
+    return items
 
 
 def get_settings() -> Dict:
@@ -244,7 +292,17 @@ def delete_source(source_id: str) -> bool:
 
 def _keywords(profile: Dict) -> Dict[str, List[str]]:
     positive = []
-    for key in ["research_direction", "interests", "priority_keywords"]:
+    for key in [
+        "research_direction",
+        "goals",
+        "interests",
+        "priority_keywords",
+        "preferred_event_types",
+        "preferred_cities",
+        "preferred_formats",
+        "language_preferences",
+        "recommendation_focus",
+    ]:
         value = profile.get(key)
         if isinstance(value, list):
             positive.extend(str(item).strip() for item in value if str(item).strip())
@@ -263,16 +321,33 @@ def grade_event(event: Dict, profile: Optional[Dict] = None) -> Dict:
         str(event.get("category") or ""),
         " ".join(event.get("tags") or []),
         str(event.get("organizer") or ""),
+        str(event.get("location") or ""),
+        str(event.get("city") or ""),
+        str(event.get("source_name") or ""),
     ]).lower()
     positive_hits = [word for word in words["positive"] if word and word.lower() in text]
     negative_hits = [word for word in words["negative"] if word and word.lower() in text]
+    focus = set(profile.get("recommendation_focus") or [])
+    preferred_cities = [str(item).strip() for item in profile.get("preferred_cities", []) if str(item).strip()]
+    preferred_formats = [str(item).strip() for item in profile.get("preferred_formats", []) if str(item).strip()]
+    preferred_types = [str(item).strip() for item in profile.get("preferred_event_types", []) if str(item).strip()]
+    event_location_text = " ".join([
+        str(event.get("location") or ""),
+        str(event.get("city") or ""),
+    ]).lower()
 
     score = 0
     score += min(55, len(set(positive_hits)) * 18)
-    if event.get("signup_deadline") or event.get("registration_deadline"):
+    if any(city.lower() in event_location_text for city in preferred_cities):
         score += 10
-    if event.get("location"):
+    if any(fmt.lower() in text for fmt in preferred_formats):
         score += 8
+    if any(kind.lower() in text for kind in preferred_types):
+        score += 8
+    if event.get("signup_deadline") or event.get("registration_deadline"):
+        score += 14 if "报名截止" in focus else 10
+    if event.get("location"):
+        score += 12 if "地点明确" in focus else 8
     if event.get("confidence"):
         try:
             score += float(event.get("confidence")) * 20
@@ -299,6 +374,15 @@ def grade_event(event: Dict, profile: Optional[Dict] = None) -> Dict:
         reason_parts.append("匹配画像关键词：" + "、".join(sorted(set(positive_hits))[:4]))
     if negative_hits:
         reason_parts.append("包含避免主题：" + "、".join(sorted(set(negative_hits))[:3]))
+    city_hits = [city for city in preferred_cities if city.lower() in event_location_text]
+    if city_hits:
+        reason_parts.append("匹配偏好城市：" + "、".join(city_hits[:2]))
+    format_hits = [fmt for fmt in preferred_formats if fmt.lower() in text]
+    if format_hits:
+        reason_parts.append("匹配参与形式：" + "、".join(format_hits[:2]))
+    type_hits = [kind for kind in preferred_types if kind.lower() in text]
+    if type_hits:
+        reason_parts.append("匹配活动类型：" + "、".join(type_hits[:2]))
     if event.get("signup_deadline") or event.get("registration_deadline"):
         reason_parts.append("包含报名截止信息")
     if event.get("location"):

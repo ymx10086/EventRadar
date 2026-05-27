@@ -1355,6 +1355,70 @@ label {
     line-height: 20px;
 }
 
+.modal-head p {
+    margin: 2px 0 0;
+    color: var(--app-muted);
+    font-size: 12px;
+    line-height: 17px;
+}
+
+.profile-modal {
+    width: min(860px, calc(100vw - 32px));
+}
+
+.profile-body {
+    display: grid;
+    gap: 14px;
+}
+
+.profile-summary-card,
+.profile-section {
+    padding: 14px;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-lg);
+    background: #fbfcfe;
+}
+
+.profile-summary-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+}
+
+.profile-summary-card strong {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--app-text);
+    font-size: 15px;
+    line-height: 21px;
+}
+
+.profile-summary-card p {
+    margin: 0;
+    color: var(--app-muted);
+    font-size: 12.5px;
+    line-height: 18px;
+}
+
+.profile-section {
+    margin-bottom: 0;
+    background: var(--app-surface);
+}
+
+.compact-textarea {
+    min-height: 76px;
+    max-height: 150px;
+    resize: vertical;
+    line-height: 1.45;
+}
+
+.profile-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: stretch;
+}
+
 .advanced-fields {
     padding: 10px;
     border: 1px solid var(--app-border);
@@ -1956,6 +2020,11 @@ label {
     }
 
     .grid2 {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-summary-card,
+    .profile-actions {
         grid-template-columns: 1fr;
     }
 

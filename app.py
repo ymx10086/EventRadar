@@ -192,6 +192,11 @@ async def history_page():
     """历史文章获取页面"""
     return FileResponse(static_dir / "history.html")
 
+@app.get("/fetch-records.html", include_in_schema=False)
+async def fetch_records_page():
+    """抓取记录页面"""
+    return FileResponse(static_dir / "fetch-records.html")
+
 @app.get("/events.html", include_in_schema=False)
 async def events_page():
     """活动抽取页面"""

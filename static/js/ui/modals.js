@@ -90,18 +90,53 @@
     </div>
 
     <div class="modal-backdrop" id="profileModal">
-        <div class="modal">
-            <div class="modal-head"><h2>个人信息</h2><button class="mini" data-action="close-modal" data-modal="profileModal">关闭</button></div>
-            <div class="modal-body">
-                <div class="grid2">
-                    <div class="field"><label>身份</label><input id="profileIdentity" type="text"></div>
-                    <div class="field"><label>职业</label><input id="profileProfession" type="text"></div>
-                </div>
-                <div class="field"><label>研究方向</label><input id="profileResearch" type="text"></div>
-                <div class="field"><label>兴趣</label><textarea id="profileInterests" placeholder="每行一个"></textarea></div>
-                <div class="field"><label>优先关键词</label><textarea id="profileKeywords" placeholder="每行一个"></textarea></div>
-                <div class="field"><label>避免主题</label><textarea id="profileAvoid" placeholder="每行一个"></textarea></div>
-                <div class="row-actions"><button class="primary" data-action="save-profile">保存画像</button></div>
+        <div class="modal large profile-modal">
+            <div class="modal-head"><div><h2>个人偏好</h2><p>用于活动推荐、排序和自动分级。</p></div><button class="mini" data-action="close-modal" data-modal="profileModal">关闭</button></div>
+            <div class="modal-body profile-body">
+                <section class="profile-summary-card">
+                    <div>
+                        <strong>让 EventRadar 更懂你</strong>
+                        <p>填写越具体，S/A/B/C 推荐等级越贴合你的研究、创业、课程和活动偏好。</p>
+                    </div>
+                    <button class="mini primary-soft" data-action="profile-fill-examples">填入示例</button>
+                </section>
+                <section class="form-section profile-section">
+                    <h3>基础身份</h3>
+                    <div class="grid2">
+                        <div class="field"><label>称呼</label><input id="profileDisplayName" type="text" placeholder="例如：明心"></div>
+                        <div class="field"><label>身份</label><input id="profileIdentity" type="text" placeholder="学生 / 研究者 / 创业者"></div>
+                        <div class="field"><label>职业 / 角色</label><input id="profileProfession" type="text" placeholder="例如：AI 产品 / 博士生"></div>
+                        <div class="field"><label>学校 / 公司 / 机构</label><input id="profileOrganization" type="text" placeholder="例如：北京大学"></div>
+                    </div>
+                    <div class="field"><label>研究方向 / 业务方向</label><input id="profileResearch" type="text" placeholder="例如：AI Agent、创新创业、数字人文"></div>
+                    <div class="field"><label>近期目标</label><textarea id="profileGoals" class="compact-textarea" placeholder="例如：寻找创业比赛、AI 讲座、投融资路演和研究交流机会"></textarea></div>
+                </section>
+                <section class="form-section profile-section">
+                    <h3>活动偏好</h3>
+                    <div class="grid2">
+                        <div class="field"><label>兴趣领域</label><textarea id="profileInterests" class="compact-textarea" placeholder="AI&#10;创新创业&#10;产品设计"></textarea></div>
+                        <div class="field"><label>优先关键词</label><textarea id="profileKeywords" class="compact-textarea" placeholder="人工智能&#10;路演&#10;黑客松"></textarea></div>
+                        <div class="field"><label>活动类型</label><textarea id="profileEventTypes" class="compact-textarea" placeholder="讲座&#10;论坛&#10;竞赛&#10;路演"></textarea></div>
+                        <div class="field"><label>避免主题</label><textarea id="profileAvoid" class="compact-textarea" placeholder="不感兴趣或不想推荐的主题，每行一个"></textarea></div>
+                    </div>
+                </section>
+                <section class="form-section profile-section">
+                    <h3>时间地点</h3>
+                    <div class="grid2">
+                        <div class="field"><label>偏好城市</label><textarea id="profileCities" class="compact-textarea" placeholder="北京&#10;上海&#10;线上"></textarea></div>
+                        <div class="field"><label>参与形式</label><textarea id="profileFormats" class="compact-textarea" placeholder="线下&#10;线上&#10;混合"></textarea></div>
+                        <div class="field"><label>可参加时间</label><textarea id="profileAvailability" class="compact-textarea" placeholder="工作日晚上&#10;周末下午"></textarea></div>
+                        <div class="field"><label>语言偏好</label><textarea id="profileLanguages" class="compact-textarea" placeholder="中文&#10;English"></textarea></div>
+                        <div class="field"><label>时间偏好说明</label><input id="profileTimePreference" type="text" placeholder="例如：优先晚上和周末"></div>
+                        <div class="field"><label>费用上限</label><input id="profileMaxFee" type="text" placeholder="例如：免费 / 100 元以内"></div>
+                    </div>
+                </section>
+                <section class="form-section profile-section">
+                    <h3>推荐策略</h3>
+                    <div class="field"><label>推荐重点</label><textarea id="profileFocus" class="compact-textarea" placeholder="相关度&#10;报名截止&#10;地点明确"></textarea><div class="field-help">会影响活动分级理由和排序权重。</div></div>
+                    <div class="field"><label>补充备注</label><textarea id="profileNotes" class="compact-textarea" placeholder="任何希望 AI 记住的偏好，例如“不推荐纯商业广告，优先高校/科研机构活动”。"></textarea></div>
+                </section>
+                <div class="row-actions profile-actions"><button class="primary" data-action="save-profile">保存偏好</button><button data-action="close-modal" data-modal="profileModal">稍后再说</button></div>
                 <div class="status-line" id="profileStatus"></div>
             </div>
         </div>

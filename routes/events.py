@@ -198,12 +198,24 @@ class ManualEventRequest(BaseModel):
 
 
 class ProfileRequest(BaseModel):
+    display_name: str = ""
     identity: str = ""
     profession: str = ""
+    organization: str = ""
     research_direction: str = ""
+    goals: str = ""
     interests: List[str] = Field(default_factory=list)
     priority_keywords: List[str] = Field(default_factory=list)
+    preferred_event_types: List[str] = Field(default_factory=list)
+    preferred_cities: List[str] = Field(default_factory=list)
+    preferred_formats: List[str] = Field(default_factory=list)
+    language_preferences: List[str] = Field(default_factory=list)
+    availability: List[str] = Field(default_factory=list)
+    time_preference: str = ""
+    max_fee: str = ""
+    recommendation_focus: List[str] = Field(default_factory=list)
     avoid_topics: List[str] = Field(default_factory=list)
+    notes: str = ""
 
 
 class SettingsRequest(BaseModel):

@@ -23,7 +23,16 @@ function esc(value) {
 }
 
 function lines(value) {
-    return String(value || '').split(/[\n,，]/).map(s => s.trim()).filter(Boolean);
+    return String(value || '').split(/[\n,，、;；]/).map(s => s.trim()).filter(Boolean);
+}
+
+function valueOf(id) {
+    return document.getElementById(id)?.value?.trim() || '';
+}
+
+function setValue(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.value = value || '';
 }
 
 function normalizeDedupeText(value) {

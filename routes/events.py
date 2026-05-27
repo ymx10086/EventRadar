@@ -7,17 +7,19 @@ Event extraction routes.
 import csv
 import hashlib
 import io
+import os
 import re
 import time
 import uuid
 import asyncio
+import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 from zoneinfo import ZoneInfo
 
 import httpx
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
@@ -34,7 +36,9 @@ from utils.event_extractor import (
     build_events_ics,
     clean_location_value,
     default_archive_path,
+    extract_event_candidates_from_text,
     extract_events_from_archive,
+    recognize_poster_with_minimax,
     output_dir_for,
 )
 
@@ -197,6 +201,14 @@ class ManualEventRequest(BaseModel):
     status: str = Field("pending", pattern="^(pending|confirmed|ignored)$")
 
 
+class ManualAnalyzeRequest(BaseModel):
+    mode: str = Field("text", pattern="^(text|link|image)$")
+    pasted_text: str = ""
+    link: str = ""
+    image_path: str = ""
+    title: str = ""
+
+
 class ProfileRequest(BaseModel):
     display_name: str = ""
     identity: str = ""
@@ -334,6 +346,21 @@ async def delete_source(source_id: str):
 @router.post("/manual", response_model=EventExtractResponse, summary="手动添加活动")
 async def add_manual_event(req: ManualEventRequest):
     payload = req.model_dump()
+    if (
+        payload.get("mode") in {"text", "link", "image"}
+        and not payload.get("title")
+        and not payload.get("start_time")
+        and (payload.get("pasted_text") or payload.get("link") or payload.get("image_path"))
+    ):
+        analyzed = await run_in_threadpool(_analyze_manual_event_payload, payload)
+        if analyzed:
+            event = analyzed[0]
+            event["status"] = payload.get("status") or "pending"
+            saved_count = await run_in_threadpool(event_store.save_events, [event])
+            await run_in_threadpool(event_store.cleanup_duplicate_events)
+            saved = await run_in_threadpool(event_store.get_event, event["id"])
+            return EventExtractResponse(success=True, data={"saved_count": saved_count, "event": saved})
+
     text = " ".join([
         payload.get("title", ""),
         payload.get("pasted_text", ""),
@@ -384,6 +411,75 @@ async def add_manual_event(req: ManualEventRequest):
     await run_in_threadpool(event_store.cleanup_duplicate_events)
     saved = await run_in_threadpool(event_store.get_event, event["id"])
     return EventExtractResponse(success=True, data={"saved_count": saved_count, "event": saved})
+
+
+@router.post("/manual/analyze", response_model=EventExtractResponse, summary="AI 解析手动导入内容")
+async def analyze_manual_event(req: ManualAnalyzeRequest):
+    payload = req.model_dump()
+    events = await run_in_threadpool(_analyze_manual_event_payload, payload)
+    return EventExtractResponse(success=True, data={"event_count": len(events), "events": events})
+
+
+@router.post("/manual/analyze-form", response_model=EventExtractResponse, summary="上传图片并解析手动导入内容")
+async def analyze_manual_event_form(
+    mode: str = Form("text"),
+    pasted_text: str = Form(""),
+    link: str = Form(""),
+    title: str = Form(""),
+    image: Optional[UploadFile] = File(None),
+):
+    image_path = ""
+    if image and image.filename:
+        uploads_dir = Path(os.getenv("EVENTRADAR_DATA_DIR", str(Path(__file__).parent.parent / "data"))) / "manual_uploads"
+        uploads_dir.mkdir(parents=True, exist_ok=True)
+        suffix = Path(image.filename).suffix.lower() or ".jpg"
+        target = uploads_dir / f"{int(time.time())}_{uuid.uuid4().hex[:8]}{suffix}"
+        with target.open("wb") as fh:
+            shutil.copyfileobj(image.file, fh)
+        image_path = str(target)
+    payload = {
+        "mode": mode,
+        "pasted_text": pasted_text,
+        "link": link,
+        "title": title,
+        "image_path": image_path,
+    }
+    events = await run_in_threadpool(_analyze_manual_event_payload, payload)
+    return EventExtractResponse(success=True, data={"event_count": len(events), "events": events})
+
+
+def _analyze_manual_event_payload(payload: dict) -> List[dict]:
+    text = "\n".join(part for part in [
+        payload.get("title", ""),
+        payload.get("pasted_text", ""),
+        payload.get("link", ""),
+    ] if part).strip()
+    image_paths = []
+    image_path = str(payload.get("image_path") or "").strip()
+    if image_path and Path(image_path).expanduser().exists():
+        image_path = str(Path(image_path).expanduser())
+    if image_path and Path(image_path).exists():
+        image_paths.append(image_path)
+        try:
+            poster_text = recognize_poster_with_minimax(image_path, {
+                "title": payload.get("title") or "手动导入海报",
+                "plain_content": text,
+                "link": payload.get("link", ""),
+            })
+            if poster_text:
+                text = "\n".join([text, "海报识别：", poster_text]).strip()
+        except Exception as exc:
+            text = "\n".join([text, f"海报识别暂不可用：{exc}"]).strip()
+    if not text and not image_paths:
+        raise HTTPException(status_code=400, detail="请先粘贴活动文本、链接或选择图片")
+    events = extract_event_candidates_from_text(
+        text=text,
+        title=payload.get("title") or "",
+        source_url=payload.get("link") or "",
+        image_paths=image_paths,
+        use_llm=True,
+    )
+    return [personal_assistant.normalize_event(event) for event in events]
 
 
 @router.post("/extract", response_model=EventExtractResponse, summary="从每日文章 JSON 抽取活动")

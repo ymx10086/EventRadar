@@ -55,20 +55,61 @@ function openModal(id) {
         if (start && !start.value) start.value = todayChina();
         if (end && !end.value) end.value = todayChina();
     }
+    modal.dataset.returnFocus = document.activeElement && document.activeElement !== document.body ? getOrAssignFocusId(document.activeElement) : '';
     modal.classList.add('is-open');
     document.body.classList.add('modal-open');
+    setTimeout(() => {
+        const panel = modal.querySelector('.modal');
+        const focusTarget = firstFocusable(panel) || panel;
+        focusTarget?.focus?.({ preventScroll: true });
+    }, 0);
 }
 function closeModal(id) {
     const modal = document.getElementById(id);
     if (!modal) return;
     modal.classList.remove('is-open');
     if (!document.querySelector('.modal-backdrop.is-open')) document.body.classList.remove('modal-open');
+    const returnId = modal.dataset.returnFocus;
+    if (returnId) document.getElementById(returnId)?.focus?.({ preventScroll: true });
 }
 document.addEventListener('keydown', event => {
-    if (event.key !== 'Escape') return;
     const open = Array.from(document.querySelectorAll('.modal-backdrop.is-open')).pop();
-    if (open) closeModal(open.id);
+    if (!open) return;
+    if (event.key === 'Escape') {
+        closeModal(open.id);
+        return;
+    }
+    if (event.key === 'Tab') trapModalFocus(open, event);
 });
+function getOrAssignFocusId(el) {
+    if (!el.id) el.id = 'focus-' + Math.random().toString(36).slice(2, 10);
+    return el.id;
+}
+function trapModalFocus(modal, event) {
+    const panel = modal.querySelector('.modal');
+    const focusables = Array.from(panel.querySelectorAll([
+        'a[href]',
+        'button:not([disabled])',
+        'input:not([disabled]):not([type="hidden"])',
+        'select:not([disabled])',
+        'textarea:not([disabled])',
+        '[tabindex]:not([tabindex="-1"])'
+    ].join(','))).filter(el => el.offsetParent !== null || el === document.activeElement);
+    if (!focusables.length) {
+        event.preventDefault();
+        panel.focus();
+        return;
+    }
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+    }
+}
 function setLine(id, text, type) {
     const el = document.getElementById(id);
     el.className = 'status-line ' + (type || '');
@@ -230,151 +271,6 @@ async function toggleFavorite(id, favorite) {
     await fetch('/api/events/' + encodeURIComponent(id) + '/favorite?favorite=' + String(!!favorite), { method: 'POST' });
     loadEvents();
 }
-function openEdit(id) {
-    const e = currentEvents.find(item => item.id === id || item._ui_key === id);
-    if (!e) return;
-    window.EventRadarModals?.ensureModal('editModal');
-    document.getElementById('editId').value = e.id || '';
-    document.getElementById('editTitle').value = e.title || '';
-    document.getElementById('editTags').value = (e.tags || []).join('，');
-    document.getElementById('editStart').value = e.start_time || '';
-    document.getElementById('editEnd').value = e.end_time || '';
-    document.getElementById('editLocation').value = e.location || '';
-    document.getElementById('editCity').value = e.city || '';
-    document.getElementById('editLevel').value = e.level || e.priority || 'B';
-    document.getElementById('editStatus').value = e.status || 'pending';
-    document.getElementById('editDeadline').value = e.registration_deadline || e.signup_deadline || '';
-    document.getElementById('editRegLink').value = e.registration_link || e.signup_url || '';
-    document.getElementById('editReason').value = e.reason || '';
-    document.getElementById('editDesc').value = e.description || '';
-    const summary = [
-        e.calendar_time || e.start_time || '时间待定',
-        e.location || '地点待定',
-        e.source_name || e.account || '未知来源',
-        levelText(e.level || e.priority || 'B'),
-        statusText(e.status || 'pending')
-    ];
-    document.getElementById('editSummary').innerHTML = summary.map(item => '<span>' + esc(item) + '</span>').join('');
-    const sourceUrl = e.source_url || e.source_article_url || '';
-    const sourceRow = document.getElementById('editSourceRow');
-    const sourceLink = document.getElementById('editSourceLink');
-    if (sourceUrl) {
-        sourceRow.classList.remove('is-hidden');
-        sourceLink.href = sourceUrl;
-        sourceLink.textContent = '打开公众号原文';
-    } else {
-        sourceRow.classList.add('is-hidden');
-        sourceLink.href = '#';
-    }
-    const duplicateInfo = document.getElementById('editDuplicateInfo');
-    const duplicateCount = Number(e.duplicate_count || 1);
-    duplicateInfo.textContent = duplicateCount > 1 ? '已合并 ' + duplicateCount + ' 个重复来源' : '';
-    duplicateInfo.className = 'status-line ' + (duplicateCount > 1 ? 'ok' : '');
-    const deleteBtn = document.getElementById('deleteCurrentBtn');
-    if (deleteBtn) {
-        deleteBtn.disabled = !e.id;
-        deleteBtn.textContent = e.id ? '彻底删除' : '未同步，不能删除';
-    }
-    setLine('editStatusLine', '');
-    openModal('editModal');
-}
-async function quickUpdate(id, updates) {
-    const beforeFilter = document.getElementById('statusFilter').value;
-    const res = await fetch('/api/events/' + encodeURIComponent(id), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates) });
-    const data = await res.json();
-    if (!res.ok || !data.success) return setLine('calendarStatus', data.detail || '更新失败', 'err');
-    await loadEvents({ keepStatus: true });
-    const nextStatus = updates.status || (data.data && data.data.event && data.data.event.status) || '';
-    let msg = nextStatus ? '已更新为“' + statusText(nextStatus) + '”' : '已更新活动';
-    if (beforeFilter && nextStatus && beforeFilter !== nextStatus) {
-        msg += '。当前筛选是“' + statusText(beforeFilter) + '”，所以这条活动会从当前视图移走。';
-    } else if (nextStatus === 'ignored') {
-        msg += '，默认日历会隐藏它。';
-    } else if (nextStatus === 'confirmed') {
-        msg += '，后续重复导入会保留这个确认状态。';
-    }
-    setLine('calendarStatus', msg, 'ok');
-}
-async function deleteEvent(id, title) {
-    const name = title || '这个活动';
-    const ids = eventDeleteIds(id);
-    const duplicateNote = ids.length > 1 ? '，包含已合并的 ' + ids.length + ' 条重复记录' : '';
-    if (!window.confirm('确定要彻底删除“' + name + '”吗？这不是忽略，删除后会从活动库、日历和 ICS 中移除' + duplicateNote + '。')) return;
-    try {
-        const result = await requestDeleteEvents(ids);
-        removeDeletedEvents(result.deleted_ids || ids);
-        await loadEvents({ keepStatus: true });
-        setLine('calendarStatus', '已彻底删除“' + name + '”', 'ok');
-    } catch (err) {
-        setLine('calendarStatus', err.message || '删除失败', 'err');
-    }
-}
-async function deleteCurrentEvent() {
-    const id = document.getElementById('editId').value;
-    const title = document.getElementById('editTitle').value;
-    const event = currentEvents.find(item => item.id === id || item._ui_key === id);
-    const ids = eventDeleteIds(event || id);
-    if (!ids.length) return setLine('editStatusLine', '这个活动缺少数据库 ID，无法彻底删除。请刷新列表后再试。', 'err');
-    const name = title || '这个活动';
-    const duplicateNote = ids.length > 1 ? '，包含已合并的 ' + ids.length + ' 条重复记录' : '';
-    if (!window.confirm('确定要彻底删除“' + name + '”吗？这不是忽略，删除后会从活动库、日历和 ICS 中移除' + duplicateNote + '。')) return;
-    try {
-        const result = await requestDeleteEvents(ids);
-        closeModal('editModal');
-        removeDeletedEvents(result.deleted_ids || ids);
-        await loadEvents({ keepStatus: true });
-        setLine('calendarStatus', '已彻底删除“' + name + '”', 'ok');
-    } catch (err) {
-        setLine('editStatusLine', err.message || '删除失败', 'err');
-    }
-}
-async function saveEdit() {
-    const id = document.getElementById('editId').value;
-    const body = {
-        title: document.getElementById('editTitle').value,
-        tags: lines(document.getElementById('editTags').value),
-        start_time: document.getElementById('editStart').value,
-        end_time: document.getElementById('editEnd').value,
-        location: document.getElementById('editLocation').value,
-        city: document.getElementById('editCity').value,
-        level: document.getElementById('editLevel').value,
-        status: document.getElementById('editStatus').value,
-        registration_deadline: document.getElementById('editDeadline').value,
-        registration_link: document.getElementById('editRegLink').value,
-        reason: document.getElementById('editReason').value,
-        description: document.getElementById('editDesc').value
-    };
-    const res = await fetch('/api/events/' + encodeURIComponent(id), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    const data = await res.json();
-    if (!res.ok || !data.success) return setLine('editStatusLine', data.detail || '保存失败', 'err');
-    setLine('editStatusLine', '已保存', 'ok');
-    loadEvents();
-}
-async function saveManualEvent() {
-    const file = document.getElementById('manualImage').files[0];
-    const body = {
-        mode: document.getElementById('manualMode').value,
-        pasted_text: document.getElementById('manualText').value,
-        link: document.getElementById('manualLink').value,
-        image_path: file ? file.name : '',
-        title: document.getElementById('manualTitle').value,
-        start_time: document.getElementById('manualStart').value,
-        end_time: document.getElementById('manualEnd').value,
-        location: document.getElementById('manualLocation').value,
-        city: document.getElementById('manualCity').value,
-        organizer: document.getElementById('manualOrganizer').value,
-        description: document.getElementById('manualDesc').value,
-        registration_deadline: document.getElementById('manualDeadline').value,
-        registration_link: document.getElementById('manualRegLink').value,
-        tags: lines(document.getElementById('manualTags').value),
-        level: document.getElementById('manualLevel').value || null
-    };
-    const res = await fetch('/api/events/manual', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    const data = await res.json();
-    if (!res.ok || !data.success) return setLine('manualStatus', data.detail || '保存失败', 'err');
-    setLine('manualStatus', '已保存到我的活动日历', 'ok');
-    loadEvents();
-}
 async function runAccountRange() {
     const btn = document.getElementById('extractBtn');
     btn.disabled = true;
@@ -450,221 +346,6 @@ async function pollExtractJob(jobId) {
         }
         await new Promise(resolve => setTimeout(resolve, 1000));
     }
-}
-async function loadSources() {
-    const res = await fetch('/api/events/sources');
-    const data = await res.json();
-    const list = data.data.sources || [];
-    document.getElementById('sourceList').innerHTML = list.map(s => '<div class="source-row"><div><strong>' + esc(s.name) + '</strong><p>' + esc(s.source_type) + ' · ' + esc(s.alias || s.fakeid || s.url || '') + ' · ' + (s.auto_fetch ? '参与定时抓取' : '不参与定时抓取') + '</p></div><div class="row-actions"><button class="mini" data-action="toggle-source-auto-fetch" data-source-id="' + esc(s.id) + '" data-auto-fetch="' + String(!s.auto_fetch) + '">' + (s.auto_fetch ? '暂停定时' : '加入定时') + '</button><button class="mini" data-action="delete-source" data-source-id="' + esc(s.id) + '">删除</button></div></div>').join('') || '<div class="empty"><strong>暂无信息源</strong></div>';
-}
-async function toggleSourceAutoFetch(id, autoFetch) {
-    const res = await fetch('/api/events/sources/' + encodeURIComponent(id), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ auto_fetch: !!autoFetch }) });
-    const data = await res.json();
-    if (!res.ok || !data.success) return setLine('sourceStatus', data.detail || '更新失败', 'err');
-    loadSources();
-}
-async function addSource() {
-    const body = {
-        source_type: document.getElementById('sourceType').value,
-        name: document.getElementById('sourceName').value,
-        fakeid: document.getElementById('sourceFakeid').value,
-        url: document.getElementById('sourceUrl').value
-    };
-    setLine('sourceStatus', body.source_type === 'wechat' ? '正在搜索公众号并解析 fakeid...' : '正在添加链接源...');
-    const res = await fetch('/api/events/sources', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    const data = await res.json();
-    if (!res.ok || !data.success) return setLine('sourceStatus', data.detail || '添加失败', 'err');
-    setLine('sourceStatus', '已添加信息源', 'ok');
-    loadSources();
-}
-async function deleteSource(id) {
-    await fetch('/api/events/sources/' + encodeURIComponent(id), { method: 'DELETE' });
-    loadSources();
-}
-async function loadProfile() {
-    const data = await (await fetch('/api/events/profile')).json();
-    const p = data.data.profile || {};
-    setValue('profileDisplayName', p.display_name || '');
-    document.getElementById('profileIdentity').value = p.identity || '';
-    document.getElementById('profileProfession').value = p.profession || '';
-    setValue('profileOrganization', p.organization || '');
-    document.getElementById('profileResearch').value = p.research_direction || '';
-    setValue('profileGoals', p.goals || '');
-    document.getElementById('profileInterests').value = (p.interests || []).join('\n');
-    document.getElementById('profileKeywords').value = (p.priority_keywords || []).join('\n');
-    setValue('profileEventTypes', (p.preferred_event_types || []).join('\n'));
-    setValue('profileCities', (p.preferred_cities || []).join('\n'));
-    setValue('profileFormats', (p.preferred_formats || []).join('\n'));
-    setValue('profileLanguages', (p.language_preferences || []).join('\n'));
-    setValue('profileAvailability', (p.availability || []).join('\n'));
-    setValue('profileTimePreference', p.time_preference || '');
-    setValue('profileMaxFee', p.max_fee || '');
-    setValue('profileFocus', (p.recommendation_focus || []).join('\n'));
-    document.getElementById('profileAvoid').value = (p.avoid_topics || []).join('\n');
-    setValue('profileNotes', p.notes || '');
-}
-async function saveProfile() {
-    const body = {
-        display_name: valueOf('profileDisplayName'),
-        identity: valueOf('profileIdentity'),
-        profession: valueOf('profileProfession'),
-        organization: valueOf('profileOrganization'),
-        research_direction: valueOf('profileResearch'),
-        goals: valueOf('profileGoals'),
-        interests: lines(valueOf('profileInterests')),
-        priority_keywords: lines(valueOf('profileKeywords')),
-        preferred_event_types: lines(valueOf('profileEventTypes')),
-        preferred_cities: lines(valueOf('profileCities')),
-        preferred_formats: lines(valueOf('profileFormats')),
-        language_preferences: lines(valueOf('profileLanguages')),
-        availability: lines(valueOf('profileAvailability')),
-        time_preference: valueOf('profileTimePreference'),
-        max_fee: valueOf('profileMaxFee'),
-        recommendation_focus: lines(valueOf('profileFocus')),
-        avoid_topics: lines(valueOf('profileAvoid')),
-        notes: valueOf('profileNotes')
-    };
-    const res = await fetch('/api/events/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    const data = await res.json();
-    setLine('profileStatus', data.success ? '已保存偏好，后续活动会按新画像分级' : (data.detail || '保存失败'), data.success ? 'ok' : 'err');
-}
-function fillProfileExamples() {
-    const examples = {
-        profileIdentity: '学生 / 创业者',
-        profileProfession: 'AI 产品与创业方向',
-        profileOrganization: '高校 / 创业团队',
-        profileResearch: 'AI Agent、创新创业、数字人文',
-        profileGoals: '寻找高质量讲座、创业比赛、路演、黑客松和研究交流机会。',
-        profileInterests: 'AI\n创新创业\n产品设计\n科研转化',
-        profileKeywords: '人工智能\nAgent\n路演\n竞赛\n黑客松\n报名',
-        profileEventTypes: '讲座\n论坛\n竞赛\n路演\n工作坊',
-        profileCities: '北京\n上海\n线上',
-        profileFormats: '线下\n线上\n混合',
-        profileAvailability: '工作日晚上\n周末下午',
-        profileLanguages: '中文\nEnglish',
-        profileTimePreference: '优先晚上和周末',
-        profileMaxFee: '免费或 100 元以内',
-        profileFocus: '相关度\n报名截止\n地点明确\n高校/科研机构',
-        profileAvoid: '纯广告\n无报名信息\n无明确时间',
-        profileNotes: '优先推荐高校、科研机构、创业社区活动；不推荐泛泛的商业推广。'
-    };
-    Object.entries(examples).forEach(([id, value]) => {
-        const el = document.getElementById(id);
-        if (el && !el.value.trim()) el.value = value;
-    });
-    setLine('profileStatus', '已填入示例，可按你的真实偏好继续调整。', 'ok');
-}
-async function loadSettings() {
-    const data = await (await fetch('/api/events/settings')).json();
-    const s = data.data.settings || {};
-    const automation = data.data.automation || {};
-    const safety = data.data.fetch_safety || automation.fetch_safety || {};
-    document.getElementById('settingEnabled').value = String(!!s.daily_fetch_enabled);
-    document.getElementById('settingTime').value = s.daily_fetch_time || '07:30';
-    document.getElementById('settingLookbackDays').value = s.daily_fetch_lookback_days || 0;
-    document.getElementById('settingRetentionDays').value = s.event_retention_days || 15;
-    document.getElementById('settingImport').value = String(s.auto_import_calendar !== false);
-    document.getElementById('settingLlm').value = String(s.use_llm !== false);
-    document.getElementById('settingVision').value = String(!!s.use_vision);
-    document.getElementById('settingMaxChars').value = s.max_chars || 9000;
-    document.getElementById('settingFetchConcurrency').value = s.wechat_fetch_concurrency || 1;
-    document.getElementById('settingFetchDelayMin').value = s.wechat_fetch_delay_min ?? 3;
-    document.getElementById('settingFetchDelayMax').value = s.wechat_fetch_delay_max ?? 8;
-    document.getElementById('settingAccountDelay').value = s.wechat_account_delay ?? 10;
-    document.getElementById('settingMaxArticlesPerAccount').value = s.wechat_max_articles_per_account || 20;
-    document.getElementById('settingVerificationPause').value = s.wechat_verification_pause_minutes ?? 30;
-    document.getElementById('settingVerificationThreshold').value = s.wechat_verification_stop_threshold || 2;
-    document.getElementById('settingProxyRequired').value = String(!!s.wechat_proxy_required);
-    renderFetchSafetyStatus(safety);
-    renderAutomationProgress(automation.progress || {});
-}
-async function saveSettings() {
-    const body = {
-        daily_fetch_enabled: document.getElementById('settingEnabled').value === 'true',
-        daily_fetch_time: document.getElementById('settingTime').value || '07:30',
-        daily_fetch_lookback_days: Number(document.getElementById('settingLookbackDays').value || 0),
-        event_retention_days: Number(document.getElementById('settingRetentionDays').value || 15),
-        auto_import_calendar: document.getElementById('settingImport').value === 'true',
-        use_llm: document.getElementById('settingLlm').value === 'true',
-        use_vision: document.getElementById('settingVision').value === 'true',
-        max_chars: Number(document.getElementById('settingMaxChars').value || 9000),
-        wechat_fetch_concurrency: Number(document.getElementById('settingFetchConcurrency').value || 1),
-        wechat_fetch_delay_min: Number(document.getElementById('settingFetchDelayMin').value || 0),
-        wechat_fetch_delay_max: Number(document.getElementById('settingFetchDelayMax').value || 0),
-        wechat_account_delay: Number(document.getElementById('settingAccountDelay').value || 0),
-        wechat_max_articles_per_account: Number(document.getElementById('settingMaxArticlesPerAccount').value || 20),
-        wechat_verification_pause_minutes: Number(document.getElementById('settingVerificationPause').value || 0),
-        wechat_verification_stop_threshold: Number(document.getElementById('settingVerificationThreshold').value || 2),
-        wechat_proxy_required: document.getElementById('settingProxyRequired').value === 'true'
-    };
-    const res = await fetch('/api/events/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    const data = await res.json();
-    setLine('settingsStatus', data.success ? '设置已保存' : (data.detail || '保存失败'), data.success ? 'ok' : 'err');
-    if (data.success) renderFetchSafetyStatus((data.data && data.data.fetch_safety) || {});
-}
-async function runAutomationNow() {
-    setLine('settingsStatus', '正在执行定时抓取流程...');
-    resetAutomationProgress();
-    const promise = fetch('/api/automation/run-events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ poll: true, lookback_days: Number(document.getElementById('settingLookbackDays').value || 0) }) });
-    await pollAutomationProgress(true);
-    const res = await promise;
-    const data = await res.json();
-    setLine('settingsStatus', data.success ? '抓取完成' : (data.detail || '抓取失败'), data.success ? 'ok' : 'err');
-    loadRuns();
-    loadEvents();
-}
-async function cleanupDuplicateEvents() {
-    setLine('settingsStatus', '正在清理重复活动...');
-    const res = await fetch('/api/events/cleanup-duplicates', { method: 'POST' });
-    const data = await res.json();
-    if (!res.ok || !data.success) return setLine('settingsStatus', data.detail || '清理失败', 'err');
-    setLine('settingsStatus', '已清理重复活动 ' + (data.data.deleted_count || 0) + ' 条', 'ok');
-    loadEvents();
-}
-async function cleanupOldEvents() {
-    const retentionDays = Number(document.getElementById('settingRetentionDays').value || 15);
-    setLine('settingsStatus', '正在清理过期未收藏活动...');
-    const res = await fetch('/api/events/cleanup?retention_days=' + encodeURIComponent(retentionDays), { method: 'POST' });
-    const data = await res.json();
-    if (!res.ok || !data.success) return setLine('settingsStatus', data.detail || '清理失败', 'err');
-    setLine('settingsStatus', '已清理过期活动 ' + (data.data.deleted_count || 0) + ' 条，文件 ' + (data.data.deleted_file_count || 0) + ' 个', 'ok');
-    loadEvents();
-}
-function resetAutomationProgress() {
-    document.getElementById('automationProgress').classList.add('open');
-    document.getElementById('automationProgressFill').style.width = '1%';
-    document.getElementById('automationProgressMessage').textContent = '任务已提交，等待开始';
-    document.getElementById('automationProgressLog').innerHTML = '';
-}
-function renderAutomationProgress(progress) {
-    const box = document.getElementById('automationProgress');
-    if (!box) return;
-    if (!progress || (!progress.active && !progress.updated_at)) {
-        box.classList.remove('open');
-        return;
-    }
-    box.classList.add('open');
-    document.getElementById('automationProgressFill').style.width = (progress.percent || 0) + '%';
-    document.getElementById('automationProgressMessage').textContent =
-        (progress.percent || 0) + '% · ' + (progress.message || '处理中');
-    document.getElementById('automationProgressLog').innerHTML = (progress.logs || []).slice(-12).reverse().map(log => {
-        const time = log.at ? new Date(log.at * 1000).toLocaleTimeString() : '';
-        return '<div>' + esc(time) + ' · ' + esc(log.stage || '') + ' · ' + esc(log.message || '') + '</div>';
-    }).join('');
-}
-function renderFetchSafetyStatus(safety) {
-    const el = document.getElementById('fetchSafetyStatus');
-    if (!el) return;
-    const proxy = safety.proxy_pool || {};
-    const cfg = safety.config || {};
-    const bits = [
-        safety.paused ? ('冷却中，剩余 ' + Math.ceil((safety.cooldown_remaining_seconds || 0) / 60) + ' 分钟') : '防风控状态正常',
-        '代理 ' + (proxy.enabled ? (proxy.healthy + '/' + proxy.total + ' 可用') : '未启用'),
-        '并发 ' + (cfg.article_concurrency || '-'),
-        '间隔 ' + (cfg.article_delay_min ?? '-') + '-' + (cfg.article_delay_max ?? '-') + ' 秒'
-    ];
-    el.className = 'status-line ' + (safety.paused ? 'err' : 'ok');
-    el.textContent = bits.join(' · ');
 }
 function formatDateTime(ts) {
     return ts ? new Date(ts * 1000).toLocaleString() : '-';
@@ -777,6 +458,9 @@ function handleAppAction(action, target, event) {
         case 'save-manual-event':
             saveManualEvent();
             break;
+        case 'analyze-manual-event':
+            analyzeManualEvent();
+            break;
         case 'run-account-range':
             runAccountRange();
             break;
@@ -865,6 +549,10 @@ function bindStaticActions() {
         handleAppAction(target.dataset.action, target, event);
     });
     document.addEventListener('change', event => {
+        if (event.target && event.target.id === 'manualImage') {
+            const file = event.target.files && event.target.files[0];
+            updateManualImagePreview(file);
+        }
         const target = event.target.closest('[data-action]');
         if (!target || !target.dataset.action) return;
         handleAppAction(target.dataset.action, target, event);
@@ -874,34 +562,6 @@ function bindStaticActions() {
         if (!target || !target.dataset.action) return;
         handleAppAction(target.dataset.action, target, event);
     });
-}
-async function pollAutomationProgress(stopWhenIdle) {
-    let seenActive = false;
-    let idleChecks = 0;
-    while (true) {
-        const res = await fetch('/api/automation/status');
-        const data = await res.json();
-        const progress = (data.data && data.data.progress) || {};
-        const safety = (data.data && data.data.fetch_safety) || {};
-        renderAutomationProgress(progress);
-        renderFetchSafetyStatus(safety);
-        if (progress.active) seenActive = true;
-        if (!progress.active && stopWhenIdle && seenActive) return;
-        if (!progress.active && stopWhenIdle && !seenActive && ++idleChecks >= 5) return;
-        if (!stopWhenIdle) return;
-        await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-}
-async function loadRuns() {
-    const res = await fetch('/api/automation/runs?limit=8');
-    const data = await res.json();
-    const runs = (data.data && data.data.runs) || [];
-    document.getElementById('runLog').innerHTML = runs.map(r => {
-        const result = r.result || {};
-        const archive = result.archive || {};
-        const events = result.events || {};
-        return '<div class="log-row"><div><strong>' + esc(r.status === 'success' ? '抓取成功' : '抓取失败') + '</strong><p>' + esc(formatDateTime(r.started_at)) + ' · ' + esc(r.duration_seconds || 0) + 's · ' + esc(archive.article_count || events.article_count || 0) + ' 篇文章 · ' + esc(events.event_count || 0) + ' 个活动' + (r.error ? ' · ' + esc(r.error) : '') + '</p></div></div>';
-    }).join('') || '<div class="empty"><strong>暂无抓取日志</strong></div>';
 }
 function syncFilterDrawer() {
     const drawer = document.getElementById('filtersDrawer');

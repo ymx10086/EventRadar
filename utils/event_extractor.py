@@ -91,8 +91,9 @@ EVIDENCE_KEYWORDS = [
 
 DATE_RE = re.compile(
     r"(\d{4}[年/-]\d{1,2}[月/-]\d{1,2}日?|"
-    r"\d{1,2}[月/-]\d{1,2}日?|"
     r"\d{4}\.\d{1,2}\.\d{1,2}|"
+    r"\d{1,2}[月/-]\d{1,2}日?|"
+    r"\d{1,2}\.\d{1,2}|"
     r"\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4}\b)",
     re.IGNORECASE,
 )
@@ -671,7 +672,9 @@ def fallback_extract(compressed: Dict) -> List[Dict]:
         "\n".join([x.get("text", "") for x in compressed.get("poster_vision", [])]),
     ])
     lower = text.lower()
-    if not any(k.lower() in lower for k in EVENT_KEYWORDS):
+    has_event_signal = any(k.lower() in lower for k in EVENT_KEYWORDS)
+    has_labeled_event_fact = bool(re.search(r"(?:活动)?(?:时间|地点|地址|主题)\s*[:：]", text))
+    if not has_event_signal and not has_labeled_event_fact:
         return []
 
     date_match = DATE_RE.search(text)
@@ -920,6 +923,8 @@ def _extract_city(text: str) -> str:
     for city in cities:
         if city in (text or ""):
             return city
+    if any(hint in (text or "") for hint in ["北大", "北京大学", "清华", "清华大学", "中关村"]):
+        return "北京"
     return ""
 
 
@@ -965,6 +970,61 @@ def _classify_event(text: str) -> str:
     return "event"
 
 
+def extract_event_candidates_from_text(
+    text: str,
+    title: str = "",
+    source_url: str = "",
+    publish_time: str = "",
+    image_paths: Optional[List[str]] = None,
+    use_llm: bool = True,
+) -> List[Dict]:
+    """Extract event candidates from ad-hoc text or poster OCR outside archives."""
+    article = {
+        "title": title or _shorten(_best_title_from_text(text), 80) or "手动导入活动",
+        "digest": "",
+        "plain_content": text or "",
+        "account_name": "手动导入",
+        "link": source_url or "",
+        "publish_time_iso": publish_time or datetime.now(_tz()).isoformat(),
+        "images": [
+            {"path": path, "downloaded": True}
+            for path in (image_paths or [])
+            if path
+        ],
+    }
+    compressed = compress_article_text(article, max_chars=18000)
+    raw_events = []
+    method = "fallback"
+    if use_llm and _minimax_api_key():
+        try:
+            raw_events = extract_with_llm(compressed)
+            fallback_events = fallback_extract(compressed)
+            raw_events = supplement_events_with_fallback(raw_events, fallback_events)
+            raw_events = supplement_events_from_context(raw_events, compressed)
+            raw_events = [raw for raw in raw_events if _is_valid_raw_event(raw)]
+            method = "minimax"
+        except Exception as exc:
+            logger.warning("Manual MiniMax extraction failed, fallback used: %s", exc)
+    if not raw_events:
+        raw_events = supplement_events_from_context(fallback_extract(compressed), compressed)
+        raw_events = [raw for raw in raw_events if _is_valid_raw_event(raw)]
+    return [normalize_event(raw, article, method) for raw in raw_events]
+
+
+def _best_title_from_text(text: str) -> str:
+    lines = [re.sub(r"\s+", " ", line).strip() for line in str(text or "").splitlines()]
+    useful = [
+        line.strip("【】[] ")
+        for line in lines
+        if 4 <= len(line.strip()) <= 48
+        and not re.search(r"^(时间|地点|地址|主题|主办|承办|协办|适合|欢迎|现场|活动时间|活动地点)\s*[:：]", line)
+    ]
+    for line in useful:
+        if any(keyword in line for keyword in ["专场", "活动", "讲座", "论坛", "沙龙", "校园行", "峰会", "工作坊"]):
+            return line
+    return useful[0] if useful else ""
+
+
 def normalize_event(raw: Dict, article: Dict, method: str) -> Dict:
     title = str(raw.get("title") or article.get("title") or "").strip()
     location = clean_location_value(str(raw.get("location") or ""))
@@ -988,6 +1048,7 @@ def normalize_event(raw: Dict, article: Dict, method: str) -> Dict:
         "start_time": str(raw.get("start_time") or ""),
         "end_time": str(raw.get("end_time") or ""),
         "location": location,
+        "city": str(raw.get("city") or ""),
         "organizer": str(raw.get("organizer") or ""),
         "signup_start_time": str(raw.get("signup_start_time") or raw.get("registration_start_time") or raw.get("signup_time") or raw.get("registration_time") or ""),
         "signup_deadline": str(raw.get("signup_deadline") or ""),
@@ -1152,6 +1213,20 @@ def _clean_time_text(value: str) -> str:
     if match:
         return match.group(0).strip()
     match = re.search(
+        r"\d{4}\.\d{1,2}\.\d{1,2}"
+        r"(?:\s*\d{1,2}[:：]\d{2})?",
+        text,
+    )
+    if match:
+        return match.group(0).strip()
+    match = re.search(
+        r"\d{1,2}\.\d{1,2}"
+        r"(?:\s*\d{1,2}[:：]\d{2})?",
+        text,
+    )
+    if match:
+        return match.group(0).strip()
+    match = re.search(
         r"\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4}(?:,?\s*\d{1,2}[:：]\d{2})?",
         text,
         re.IGNORECASE,
@@ -1293,10 +1368,19 @@ def _fill_missing_year(value: str, event: Dict) -> str:
     year = _context_year(event)
     match = re.search(r"(\d{1,2})\s*月\s*(\d{1,2})\s*日?(.*)$", text)
     if match:
-        return f"{year}年{int(match.group(1))}月{int(match.group(2))}日{match.group(3).strip()}"
+        suffix = match.group(3).strip()
+        sep = " " if suffix and re.match(r"^\d{1,2}[:：]", suffix) else ""
+        return f"{year}年{int(match.group(1))}月{int(match.group(2))}日{sep}{suffix}"
     match = re.search(r"(\d{1,2})[/-](\d{1,2})(.*)$", text)
     if match:
-        return f"{year}-{int(match.group(1)):02d}-{int(match.group(2)):02d}{match.group(3).strip()}"
+        suffix = match.group(3).strip()
+        sep = " " if suffix and re.match(r"^\d{1,2}[:：]", suffix) else ""
+        return f"{year}-{int(match.group(1)):02d}-{int(match.group(2)):02d}{sep}{suffix}"
+    match = re.search(r"(\d{1,2})\.(\d{1,2})(.*)$", text)
+    if match:
+        suffix = match.group(3).strip()
+        sep = " " if suffix and re.match(r"^\d{1,2}[:：]", suffix) else ""
+        return f"{year}-{int(match.group(1)):02d}-{int(match.group(2)):02d}{sep}{suffix}"
     return text
 
 

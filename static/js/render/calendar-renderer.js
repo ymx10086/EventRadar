@@ -3,12 +3,17 @@ function renderStats(data) {
     const pending = currentEvents.filter(e => (e.status || 'pending') === 'pending').length;
     const recommended = currentEvents.filter(e => ['S', 'A'].includes(e.level || e.priority || 'B')).length;
     const todayCount = currentEvents.filter(e => eventDateKey(e) === todayChina()).length;
-    document.getElementById('stats').innerHTML =
-        '<div class="stat stat-today"><div class="stat-top"><div class="k">今日活动</div><span></span></div><div class="v">' + esc(todayCount) + '</div><p>按时间线整理</p></div>' +
-        '<div class="stat stat-pending"><div class="stat-top"><div class="k">待确认</div><span></span></div><div class="v">' + esc(pending) + '</div><p>等待你处理</p></div>' +
-        '<div class="stat stat-recommend"><div class="stat-top"><div class="k">推荐活动</div><span></span></div><div class="v">' + esc(recommended || (levels.S || 0) + (levels.A || 0)) + '</div><p>S/A 优先级</p></div>' +
-        '<div class="stat stat-favorite"><div class="stat-top"><div class="k">已收藏</div><span></span></div><div class="v">' + esc(data.favorite_count || 0) + '</div><p>长期保留</p></div>';
+    setHTML('stats',
+        statCard('stat-today', '今日活动', todayCount, '按时间线整理') +
+        statCard('stat-pending', '待确认', pending, '等待你处理') +
+        statCard('stat-recommend', '推荐活动', recommended || (levels.S || 0) + (levels.A || 0), 'S/A 优先级') +
+        statCard('stat-favorite', '已收藏', data.favorite_count || 0, '长期保留')
+    );
     renderSideRail(data);
+}
+
+function statCard(className, label, value, caption) {
+    return html`<div class="stat ${className}"><div class="stat-top"><div class="k">${label}</div><span></span></div><div class="v">${value}</div><p>${caption}</p></div>`;
 }
 
 function renderTagOptions(tags) {

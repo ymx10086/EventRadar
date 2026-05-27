@@ -222,6 +222,33 @@ class EventExtractorTest(unittest.TestCase):
         self.assertIn("DTSTART;VALUE=DATE:20260510", ics)
         self.assertIn("DTEND;VALUE=DATE:20260511", ics)
 
+    def test_manual_text_extracts_dot_date_activity(self):
+        import utils.event_extractor as extractor
+
+        os.environ["MINIMAX_API_KEY"] = ""
+        text = (
+            "未来机域校园行·走进北大\n"
+            "具身智能 & 灵巧操作专场\n"
+            "时间：5.28（周四）13:30-17:00\n"
+            "地点：北大英杰交流中心 阳光厅\n"
+            "主题：解锁具身智能与灵巧操作新可能\n"
+            "适合：机器人 / AI / 嵌入式 / 自动化方向的师生\n"
+        )
+
+        events = extractor.extract_event_candidates_from_text(
+            text,
+            title="未来机域校园行·走进北大",
+            publish_time="2026-05-27T10:00:00+08:00",
+            use_llm=False,
+        )
+
+        self.assertEqual(len(events), 1)
+        event = events[0]
+        self.assertIn("未来机域", event["title"])
+        self.assertIn("2026-05-28", event["calendar_time"])
+        self.assertIn("13:30", event["calendar_time"])
+        self.assertEqual(event["location"], "北大英杰交流中心 阳光厅")
+
     def test_ics_keeps_iso_time_with_timezone(self):
         import utils.event_extractor as extractor
 

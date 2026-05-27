@@ -1,53 +1,77 @@
 (function () {
     const MODAL_TEMPLATES = {};
     const modalMarkup = `<div class="modal-backdrop" id="addModal">
-        <div class="modal">
-            <div class="modal-head"><h2>添加活动</h2><button class="mini" data-action="close-modal" data-modal="addModal">关闭</button></div>
-            <div class="modal-body">
-                <section class="form-section">
-                    <h3>快速导入</h3>
-                    <div class="grid2">
-                        <div class="field"><label>添加方式</label><select id="manualMode"><option value="manual">手动填写</option><option value="text">粘贴文本</option><option value="link">输入链接</option><option value="image">上传图片</option></select></div>
+        <div class="modal manual-import-modal" aria-labelledby="addModalTitle">
+            <div class="modal-head manual-modal-head">
+                <div>
+                    <span class="eyebrow">Quick Add</span>
+                    <h2 id="addModalTitle">导入活动</h2>
+                    <p>粘贴文字、输入链接或上传海报，先让 AI 识别，再确认保存。</p>
+                </div>
+                <button class="mini" data-action="close-modal" data-modal="addModal">关闭</button>
+            </div>
+            <div class="modal-body manual-import-body">
+                <section class="manual-import-hero">
+                    <div>
+                        <strong>AI 解析活动信息</strong>
+                        <p>适合公众号通知、活动海报 OCR、报名文案。解析后会自动预填标题、时间、地点、主办方和推荐等级。</p>
+                    </div>
+                    <button class="primary" id="manualAnalyzeBtn" data-action="analyze-manual-event">AI 解析并预填</button>
+                </section>
+                <section class="form-section manual-source-section">
+                    <div class="section-title-row">
+                        <h3>导入来源</h3>
+                        <span>支持文本 / 链接 / 图片</span>
+                    </div>
+                    <div class="manual-mode-grid">
+                        <div class="field"><label>添加方式</label><select id="manualMode"><option value="text">粘贴文本</option><option value="link">输入链接</option><option value="image">上传图片</option><option value="manual">手动填写</option></select></div>
                         <div class="field"><label>链接</label><input id="manualLink" type="text" placeholder="https://..."></div>
                     </div>
-                    <div class="field"><label>粘贴文本</label><textarea id="manualText" placeholder="粘贴活动通知、海报 OCR 或报名说明"></textarea></div>
-                    <div class="field"><label>图片文件</label><input id="manualImage" type="file" accept="image/*"></div>
+                    <div class="field"><label>活动文本</label><textarea id="manualText" class="manual-source-textarea" placeholder="粘贴活动通知、海报文字或报名说明。例：时间：5.28（周四）13:30-17:00，地点：北大英杰交流中心 阳光厅"></textarea></div>
+                    <label class="manual-upload-card" for="manualImage">
+                        <span>上传活动海报</span>
+                        <strong id="manualImageName">选择图片文件</strong>
+                        <small id="manualImageMeta">JPG / PNG / WebP，建议小于 10MB。</small>
+                        <img id="manualImagePreview" class="manual-image-preview" alt="活动海报预览">
+                        <input id="manualImage" type="file" accept="image/*">
+                    </label>
                 </section>
-                <section class="form-section">
-                    <h3>基础信息</h3>
-                    <div class="grid2">
-                    <div class="field"><label>标题</label><input id="manualTitle" type="text"></div>
-                    <div class="field"><label>标签</label><input id="manualTags" type="text" placeholder="AI，创业，讲座"></div>
+                <section class="form-section manual-result-section">
+                    <div class="section-title-row">
+                        <h3>识别结果</h3>
+                        <span>可手动修正后保存</span>
                     </div>
-                    <div class="field"><label>描述</label><textarea id="manualDesc"></textarea></div>
-                </section>
-                <section class="form-section">
-                    <h3>时间地点</h3>
-                    <div class="grid2">
-                    <div class="field"><label>开始时间</label><input id="manualStart" type="text" placeholder="2026-05-22 19:00"></div>
-                    <div class="field"><label>结束时间</label><input id="manualEnd" type="text"></div>
-                    <div class="field"><label>地点</label><input id="manualLocation" type="text"></div>
-                    <div class="field"><label>城市</label><input id="manualCity" type="text"></div>
+                    <div class="manual-result-grid">
+                        <div class="field manual-title-field"><label>标题</label><input id="manualTitle" type="text" placeholder="活动名称"></div>
+                        <div class="field"><label>开始时间</label><input id="manualStart" type="text" placeholder="2026-05-28 13:30"></div>
+                        <div class="field"><label>结束时间</label><input id="manualEnd" type="text" placeholder="2026-05-28 17:00"></div>
+                        <div class="field"><label>地点</label><input id="manualLocation" type="text" placeholder="北大英杰交流中心 阳光厅"></div>
+                        <div class="field"><label>城市</label><input id="manualCity" type="text" placeholder="北京"></div>
+                        <div class="field"><label>主办方</label><input id="manualOrganizer" type="text"></div>
+                        <div class="field manual-title-field"><label>标签</label><input id="manualTags" type="text" placeholder="具身智能，机器人，AI"></div>
                     </div>
+                    <div class="field"><label>推荐理由 / 描述</label><textarea id="manualDesc" class="compact-textarea" placeholder="一句话说明活动亮点"></textarea></div>
                 </section>
                 <details class="form-section advanced-fields">
-                    <summary>来源与 AI 推荐信息</summary>
+                    <summary>高级字段</summary>
                     <div class="grid2">
-                    <div class="field"><label>主办方</label><input id="manualOrganizer" type="text"></div>
                     <div class="field"><label>报名截止</label><input id="manualDeadline" type="text"></div>
                     <div class="field"><label>报名链接</label><input id="manualRegLink" type="text"></div>
                     <div class="field"><label>等级</label><select id="manualLevel"><option value="">自动分级</option><option value="S">S 强相关</option><option value="A">A 值得关注</option><option value="B">B 一般相关</option><option value="C">C 低相关</option></select></div>
                     </div>
                 </details>
-                <div class="row-actions"><button class="primary" data-action="save-manual-event">保存到我的日历</button></div>
-                <div class="status-line" id="manualStatus"></div>
+                <div class="manual-footer-actions">
+                    <button class="primary" data-action="save-manual-event">保存到我的日历</button>
+                    <button id="manualRetryBtn" data-action="analyze-manual-event">重新解析</button>
+                </div>
+                <div class="status-line" id="manualStatus" aria-live="polite"></div>
             </div>
         </div>
     </div>
 
     <div class="modal-backdrop" id="extractModal">
-        <div class="modal small">
-            <div class="modal-head"><h2>导入公众号</h2><button class="mini" data-action="close-modal" data-modal="extractModal">关闭</button></div>
+        <div class="modal small" aria-labelledby="extractModalTitle">
+            <div class="modal-head"><h2 id="extractModalTitle">导入公众号</h2><button class="mini" data-action="close-modal" data-modal="extractModal">关闭</button></div>
             <div class="modal-body">
                 <div class="field"><label>公众号</label><input id="extractAccount" type="text" placeholder="公众号名称 / alias / fakeid"></div>
                 <div class="grid2">
@@ -73,8 +97,8 @@
     </div>
 
     <div class="modal-backdrop" id="sourcesModal">
-        <div class="modal">
-            <div class="modal-head"><h2>信息源管理</h2><button class="mini" data-action="close-modal" data-modal="sourcesModal">关闭</button></div>
+        <div class="modal" aria-labelledby="sourcesModalTitle">
+            <div class="modal-head"><h2 id="sourcesModalTitle">信息源管理</h2><button class="mini" data-action="close-modal" data-modal="sourcesModal">关闭</button></div>
             <div class="modal-body">
                 <div class="grid2">
                     <div class="field"><label>类型</label><select id="sourceType"><option value="wechat">公众号</option><option value="link">链接源</option></select></div>
@@ -90,8 +114,8 @@
     </div>
 
     <div class="modal-backdrop" id="profileModal">
-        <div class="modal large profile-modal">
-            <div class="modal-head"><div><h2>个人偏好</h2><p>用于活动推荐、排序和自动分级。</p></div><button class="mini" data-action="close-modal" data-modal="profileModal">关闭</button></div>
+        <div class="modal large profile-modal" aria-labelledby="profileModalTitle">
+            <div class="modal-head"><div><h2 id="profileModalTitle">个人偏好</h2><p>用于活动推荐、排序和自动分级。</p></div><button class="mini" data-action="close-modal" data-modal="profileModal">关闭</button></div>
             <div class="modal-body profile-body">
                 <section class="profile-summary-card">
                     <div>
@@ -143,8 +167,8 @@
     </div>
 
     <div class="modal-backdrop" id="settingsModal">
-        <div class="modal">
-            <div class="modal-head"><h2>设置</h2><button class="mini" data-action="close-modal" data-modal="settingsModal">关闭</button></div>
+        <div class="modal" aria-labelledby="settingsModalTitle">
+            <div class="modal-head"><h2 id="settingsModalTitle">设置</h2><button class="mini" data-action="close-modal" data-modal="settingsModal">关闭</button></div>
             <div class="modal-body">
                 <section class="form-section">
                     <h3>日历助手</h3>
@@ -197,8 +221,8 @@
     </div>
 
     <div class="modal-backdrop" id="fetchRecordsModal">
-        <div class="modal large">
-            <div class="modal-head"><h2>抓取记录</h2><button class="mini" data-action="close-modal" data-modal="fetchRecordsModal">关闭</button></div>
+        <div class="modal large" aria-labelledby="fetchRecordsModalTitle">
+            <div class="modal-head"><h2 id="fetchRecordsModalTitle">抓取记录</h2><button class="mini" data-action="close-modal" data-modal="fetchRecordsModal">关闭</button></div>
             <div class="modal-body">
                 <div class="records-toolbar">
                     <div>
@@ -214,7 +238,7 @@
     </div>
 
     <div class="modal-backdrop" id="dayModal">
-        <div class="modal large">
+        <div class="modal large" aria-labelledby="dayModalTitle">
             <div class="modal-head"><h2 id="dayModalTitle">当天活动</h2><button class="mini" data-action="close-modal" data-modal="dayModal">关闭</button></div>
             <div class="modal-body">
                 <div id="dayModalBody" class="list-view"></div>
@@ -223,11 +247,11 @@
     </div>
 
     <div class="modal-backdrop drawer-backdrop event-detail-backdrop" id="editModal">
-        <div class="modal drawer-panel event-detail-panel">
+        <div class="modal drawer-panel event-detail-panel" aria-labelledby="editModalTitle">
             <div class="modal-head detail-drawer-head">
                 <div>
                     <span class="eyebrow">Event Detail</span>
-                    <h2>活动详情</h2>
+                    <h2 id="editModalTitle">活动详情</h2>
                 </div>
                 <button class="mini detail-close" data-action="close-modal" data-modal="editModal" aria-label="关闭活动详情">关闭</button>
             </div>
@@ -291,7 +315,22 @@
             document.body.insertAdjacentHTML('beforeend', MODAL_TEMPLATES[id]);
             modal = document.getElementById(id);
         }
+        if (modal) prepareModal(modal);
         return modal;
+    }
+    function prepareModal(backdrop) {
+        const panel = backdrop.querySelector('.modal');
+        if (!panel) return;
+        panel.setAttribute('role', 'dialog');
+        panel.setAttribute('aria-modal', 'true');
+        panel.setAttribute('tabindex', '-1');
+        if (!panel.getAttribute('aria-labelledby')) {
+            const heading = panel.querySelector('h2, h1, h3');
+            if (heading) {
+                if (!heading.id) heading.id = backdrop.id + 'Title';
+                panel.setAttribute('aria-labelledby', heading.id);
+            }
+        }
     }
     window.EventRadarModals = { ensureModal, templates: MODAL_TEMPLATES };
 })();

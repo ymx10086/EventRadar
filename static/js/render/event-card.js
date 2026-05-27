@@ -13,7 +13,7 @@ function timeText(e) {
 }
 
 function upNextItem(e) {
-    return '<button class="up-next-item" data-action="open-edit" data-event-key="' + esc(eventActionKey(e)) + '"><span>' + esc(timeText(e)) + '</span><strong>' + esc(e.title) + '</strong></button>';
+    return html`<button class="up-next-item" data-action="open-edit" data-event-key="${eventActionKey(e)}"><span>${timeText(e)}</span><strong>${e.title}</strong></button>`;
 }
 
 function renderSideRail(data) {
@@ -38,29 +38,29 @@ function eventActionKey(e) {
 }
 
 function eventCard(e) {
-    const tags = (e.tags || []).slice(0, 3).map(t => '<span class="tag">' + esc(t) + '</span>').join('');
+    const tags = (e.tags || []).slice(0, 3).map(t => html`<span class="tag">${t}</span>`).join('');
     const calendarTime = e.calendar_time || e.start_time || '时间待定';
     const calendarLabel = e.calendar_time_label || (e.calendar_time ? '日历时间' : '活动时间');
     const fav = !!(e.is_favorite || e.favorite);
     const status = e.status || 'pending';
     const level = e.level || e.priority || 'B';
-    const levelBadge = '<span class="badge level level-' + esc(level) + '" title="' + esc(levelText(level)) + '">' + esc(level) + '</span>';
-    const duplicate = Number(e.duplicate_count || 1) > 1 ? '<span class="badge duplicate-badge">+' + esc(Number(e.duplicate_count || 1) - 1) + ' 来源</span>' : '';
+    const levelBadge = html`<span class="badge level level-${level}" title="${levelText(level)}">${level}</span>`;
+    const duplicate = Number(e.duplicate_count || 1) > 1 ? html`<span class="badge duplicate-badge">+${Number(e.duplicate_count || 1) - 1} 来源</span>` : '';
     const favoriteText = fav ? '已收藏' : '收藏';
     const key = eventActionKey(e);
     const favoriteAction = e.id
-        ? '<button class="mini" data-action="toggle-favorite" data-event-id="' + esc(e.id) + '" data-favorite="' + String(!fav) + '">' + favoriteText + '</button>'
+        ? html`<button class="mini" data-action="toggle-favorite" data-event-id="${e.id}" data-favorite="${String(!fav)}">${favoriteText}</button>`
         : '<button class="mini" disabled>未同步</button>';
     const selectBox = e.id
         ? '<label class="event-select" data-action="stop-card-click"><input type="checkbox" data-action="toggle-event-selection" data-event-select="' + esc(e.id) + '" ' + (selectedEventIds.has(e.id) ? 'checked' : '') + '><span>选择</span></label>'
         : '';
     return '<article class="event-card" data-action="open-edit" data-event-key="' + esc(key) + '">' +
-        '<div class="event-card-top"><div class="event-card-badges">' + levelBadge + duplicate + '</div><div class="event-card-state">' + selectBox + '<span class="badge status-' + esc(status) + '">' + esc(statusText(status)) + '</span></div></div>' +
-        '<h3 class="event-title">' + (fav ? '★ ' : '') + esc(e.title) + '</h3>' +
-        '<div class="event-meta"><span>' + esc(calendarLabel + '：' + calendarTime) + '</span><span>' + esc(e.location || '地点待定') + '</span><span>' + esc(e.source_name || e.account || '未知来源') + '</span></div>' +
+        '<div class="event-card-top"><div class="event-card-badges">' + levelBadge + duplicate + '</div><div class="event-card-state">' + selectBox + html`<span class="badge status-${status}">${statusText(status)}</span>` + '</div></div>' +
+        html`<h3 class="event-title">${fav ? '★ ' : ''}${e.title}</h3>` +
+        html`<div class="event-meta"><span>${calendarLabel + '：' + calendarTime}</span><span>${e.location || '地点待定'}</span><span>${e.source_name || e.account || '未知来源'}</span></div>` +
         (tags ? '<div class="tags">' + tags + '</div>' : '') +
-        '<div class="reason">' + esc(e.reason || '暂无推荐理由') + '</div>' +
-        '<div class="card-actions"><button class="mini primary-soft" data-action="open-edit" data-event-key="' + esc(key) + '">查看详情</button>' + favoriteAction + '<a class="btn mini" data-action="stop-card-click" href="/api/events/calendar.ics" target="_blank" rel="noopener">加入日历</a></div>' +
+        html`<div class="reason">${e.reason || '暂无推荐理由'}</div>` +
+        '<div class="card-actions">' + html`<button class="mini primary-soft" data-action="open-edit" data-event-key="${key}">查看详情</button>` + favoriteAction + '<a class="btn mini" data-action="stop-card-click" href="/api/events/calendar.ics" target="_blank" rel="noopener">加入日历</a></div>' +
         '</article>';
 }
 

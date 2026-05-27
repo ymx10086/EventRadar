@@ -897,6 +897,79 @@
             }
         }
 
+        async function saveRuntimeConfig() {
+            var btn = document.getElementById('saveConfigBtn');
+            btn.disabled = true;
+            btn.textContent = '保存中...';
+            setConfigStatus('正在保存...');
+
+            var payload = {
+                MINIMAX_API_STYLE: document.getElementById('cfgMinimaxStyle').value,
+                MINIMAX_MODEL: document.getElementById('cfgMinimaxModel').value,
+                MINIMAX_BASE_URL: document.getElementById('cfgMinimaxBaseUrl').value,
+                MINIMAX_API_HOST: document.getElementById('cfgMinimaxApiHost').value,
+                MINIMAX_TIMEOUT: Number(document.getElementById('cfgMinimaxTimeout').value || 90),
+                MINIMAX_VISION_ENABLED: document.getElementById('cfgMinimaxVisionEnabled').value === 'true',
+                MINIMAX_VISION_MODEL: document.getElementById('cfgMinimaxVisionModel').value,
+                WEBHOOK_URL: document.getElementById('cfgWebhookUrl').value,
+                PROXY_URLS: document.getElementById('cfgProxyUrls').value
+            };
+
+            var apiKey = document.getElementById('cfgMinimaxKey').value.trim();
+            if (apiKey) payload.MINIMAX_API_KEY = apiKey;
+
+            try {
+                var res = await fetch('/api/admin/config', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                var data = await res.json();
+
+                if (!res.ok || !data.success) {
+                    throw new Error(data.detail || data.message || '保存失败');
+                }
+
+                document.getElementById('cfgMinimaxKey').value = '';
+                setConfigStatus('配置已保存，部分设置重启服务后完全生效', 'ok');
+                await loadRuntimeConfig();
+            } catch (e) {
+                setConfigStatus('保存失败：' + e.message, 'err');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '保存配置';
+            }
+        }
+
+        async function testArticle() {
+            var input = document.getElementById('testUrl');
+            var btn = document.getElementById('testBtn');
+            var panel = document.getElementById('resultPanel');
+            var tag = document.getElementById('resultTag');
+            var timeEl = document.getElementById('resultTime');
+            var meta = document.getElementById('resultMeta');
+            var body = document.getElementById('resultBody');
+            var url = input.value.trim();
+
+            if (!url) {
+                input.focus();
+                tag.className = 'tag error';
+                tag.textContent = '缺少 URL';
+                timeEl.textContent = '';
+                meta.style.display = 'none';
+                body.textContent = '请输入一条微信公众号文章 URL。';
+                panel.style.display = 'block';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = '获取中...';
+            panel.style.display = 'block';
+            tag.className = 'tag';
+            tag.textContent = '请求中';
+            timeEl.textContent = '';
+            meta.style.display = 'none';
+            body.textContent = '正在请求文章内容...';
 
             var startTime = Date.now();
 
